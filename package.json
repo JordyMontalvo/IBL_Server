@@ -1,14 +1,11 @@
 {
   "name": "lehaim",
   "version": "0.1.0",
-  "engines": {
-    "node": "16.x"
-  },
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start -p $PORT"
+    "dev": "cross-env NODE_OPTIONS='--openssl-legacy-provider' next dev",
+    "build": "cross-env NODE_OPTIONS='--openssl-legacy-provider' next build",
+    "start": "cross-env NODE_OPTIONS='--openssl-legacy-provider' next start -p $PORT"
   },
   "dependencies": {
     "bcrypt": "^5.0.0",
@@ -19,5 +16,8 @@
     "next": "9.4.4",
     "react": "16.13.1",
     "react-dom": "16.13.1"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3"
   }
 }
