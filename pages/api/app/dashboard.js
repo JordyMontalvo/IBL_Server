@@ -1,3 +1,4 @@
+import { EventEmitterAsyncResource } from "mongodb/lib/apm"
 import db  from "../../../components/db"
 import lib from "../../../components/lib"
 
@@ -40,6 +41,7 @@ export default async (req, res) => {
     country:    user.country,
     photo:      user.photo,
     tree:       user.tree,
+    email:      user.email,
 
     banner,
     ins,
