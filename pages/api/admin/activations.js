@@ -98,11 +98,17 @@ export default async (req, res) => {
       const points_total = user.points + activation.points
       console.log({ points_total })
 
-      const _activated = user._activated ? true : (points_total >= 40)
-      console.log({ _activated })
-
-      const activated = user.activated ? true : (points_total >= 120)
-      console.log({ activated })
+      const Actiproduct = activation.products.some(
+        (products) => products.name === "ACTIVACIÓN LOTES" || products.name === "ACTIVACIÓN MEMBRESIAS"
+      );
+      
+      // Actualizar `_activated` y `activated` basados únicamente en la compra aprobada de productos específicos
+      const _activated = user._activated ? true : Actiproduct;
+      console.log({ _activated });
+      
+      const activated = user.activated ? true : Actiproduct;
+      console.log({ activated });
+      
 
       await User.update({ id: user.id }, {
         activated,
