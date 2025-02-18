@@ -286,8 +286,13 @@ class Product {
     await db.collection('products').updateOne(query, { $unset: values })
     return client.close()
   }
-
-
+  async delete(query) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn   = await client.connect()
+    const db     = conn.db(name)
+    await db.collection('products').deleteOne(query)
+    return client.close()
+  }
 }
 
 class Activation {
