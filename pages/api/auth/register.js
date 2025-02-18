@@ -52,7 +52,7 @@ const Register = async (req, res) => {
     password,
     phone,
     parentId:   parent.id,
-    affiliated: false,
+    affiliated: true,
     _activated:  false,
     activated:  false,
     plan:      'default',
