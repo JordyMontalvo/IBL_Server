@@ -21,6 +21,42 @@ function find(id, i) { // i: branch
   return find(node.childs[i], i)
 } */
 
+let users = null
+let tree = null
+
+const pay = [0.15, 0.05, 0.03, 0.02, 0.01, 0.005, 0.005]
+
+async function pay_bonus(id, i, activation_id, amount, type, _id) {
+
+  const user = users.find(e => e.id == id)
+  const node = tree.find(e => e.id == id)
+
+  let virtual = false
+
+  if(type = 'MEMBRESIA' && !user._activated) virtual = true
+  if(type = 'LOTE' && !user.activated) virtual = true
+
+  let p = pay[i]
+
+  console.log({ p, amount })
+
+  await Transaction.insert({
+    id: rand(),
+    date: new Date(),
+    user_id: user.id,
+    type: 'in',
+    value: p * amount,
+    activation_id,
+    virtual,
+    activation_type: type,
+    _user_id: _id,
+  })
+
+  if (i == 6 || !node.parent) return
+
+  pay_bonus(node.parent, i + 1, activation_id, amount, type, _id)
+}
+
 
 export default async (req, res) => {
   await midd(req, res)
@@ -112,11 +148,11 @@ export default async (req, res) => {
       
       // Actualizar `_activated` y `activated` basados únicamente en la compra aprobada de productos específicos
       // const _activated = user._activated ? true : Actiproduct;
-      const _activated = (ActiproductMemb || ActiproductLote) ? true : false;
+      const _activated = (ActiproductMemb || ActiproductLote) ? true : user._activated;
       console.log({ _activated });
       
       // const activated = user.activated ? true : Actiproduct;
-      const activated = ActiproductLote ? true : false;
+      const activated = ActiproductLote ? true : user.activated;
       console.log({ activated });
       
 
@@ -182,39 +218,60 @@ export default async (req, res) => {
       // PAY BONUS
       console.log('PAY BONUS ...')
 
-      if (user.parentId) {
+      tree = await Tree.find({})
+      users = await User.find({})
 
-        const amount = products.filter((p) => p.type == 'Promoción')
-          .reduce((a, p) => (a + p.total * 10), 0)
-        console.log('amunt: ', amount)
+      console.log({ points: activation.points})
 
-        if (amount) {
+      const productMemb = activation.products.some(
+        (products) => (products.type === "MEMBRESIA" && products.total > 0)
+      );
 
-          const parent = await User.findOne({ id: user.parentId })
-          const id = rand()
-          const virtual = parent.activated ? false : true
-          console.log('parent: ', parent)
+      const productLote = activation.products.some(
+        (products) => (products.name === "TERRENO" && products.total > 0)
+      );
 
-          await Transaction.insert({
-            id,
-            date: new Date(),
-            user_id: parent.id,
-            type: 'in',
-            value: amount,
-            name: 'activation bonnus promo',
-            activation_id: activation.d,
-            virtual,
-            _user_id: user.id,
-          })
-
-          activation.transactions.push(id)
-
-          await Activation.update({ id: activation.id }, {
-            transactions: activation.transactions,
-          })
-
-        }
+      if(productMemb) {
+        pay_bonus(user.parentId, 0, activation.id, activation.points, 'MEMBRESIA', user.id)
       }
+
+      if(productLote) {
+        pay_bonus(user.parentId, 0, activation.id, activation.points, 'LOTE', user.id)
+      }
+
+      // if (user.parentId) {
+
+      //   const amount = products.filter((p) => p.type == 'Promoción')
+      //     .reduce((a, p) => (a + p.total * 10), 0)
+      //   console.log('amunt: ', amount)
+
+      //   if (amount) {
+
+      //     const parent = await User.findOne({ id: user.parentId })
+      //     const id = rand()
+      //     const virtual = parent.activated ? false : true
+      //     console.log('parent: ', parent)
+
+      //     await Transaction.insert({
+      //       id,
+      //       date: new Date(),
+      //       user_id: parent.id,
+      //       type: 'in',
+      //       value: amount,
+      //       name: 'activation bonnus promo',
+      //       activation_id: activation.d,
+      //       virtual,
+      //       _user_id: user.id,
+      //     })
+
+      //     activation.transactions.push(id)
+
+      //     await Activation.update({ id: activation.id }, {
+      //       transactions: activation.transactions,
+      //     })
+
+      //   }
+      // }
 
       // response
       return res.json(success())
