@@ -228,7 +228,7 @@ export default async (req, res) => {
       );
 
       const productLote = activation.products.some(
-        (products) => (products.name === "TERRENO" && products.total > 0)
+        (products) => (products.type === "TERRENO" && products.total > 0)
       );
 
       if(productMemb) {
