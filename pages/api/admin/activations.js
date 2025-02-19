@@ -98,15 +98,25 @@ export default async (req, res) => {
       const points_total = user.points + activation.points
       console.log({ points_total })
 
-      const Actiproduct = activation.products.some(
-        (products) => products.name === "ACTIVACIÓN LOTES" || products.name === "ACTIVACIÓN MEMBRESIAS"
+      // const Actiproduct = activation.products.some(
+      //   (products) => products.name === "ACTIVACIÓN LOTES" || products.name === "ACTIVACIÓN MEMBRESIAS"
+      // );
+
+      const ActiproductMemb = activation.products.some(
+        (products) => (products.name === "ACTIVACIÓN MEMBRESIAS" && products.total > 0)
+      );
+
+      const ActiproductLote = activation.products.some(
+        (products) => (products.name === "ACTIVACIÓN LOTES" && products.total > 0)
       );
       
       // Actualizar `_activated` y `activated` basados únicamente en la compra aprobada de productos específicos
-      const _activated = user._activated ? true : Actiproduct;
+      // const _activated = user._activated ? true : Actiproduct;
+      const _activated = (ActiproductMemb || ActiproductLote) ? true : false;
       console.log({ _activated });
       
-      const activated = user.activated ? true : Actiproduct;
+      // const activated = user.activated ? true : Actiproduct;
+      const activated = ActiproductLote ? true : false;
       console.log({ activated });
       
 
