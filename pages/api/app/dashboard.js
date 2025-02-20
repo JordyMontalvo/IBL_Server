@@ -42,6 +42,7 @@ export default async (req, res) => {
     photo:      user.photo,
     tree:       user.tree,
     email:      user.email,
+    token:      user.token,
 
     banner,
     ins,
