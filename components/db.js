@@ -4,7 +4,7 @@ const name = process.env.DB_NAME
 const Client = require('mongodb').MongoClient
 
 class DB {
-  constructor({ User, Session, Affiliation, Product, Activation, Banner, Promo, Prom, Plan, Token, Transaction, Tree, Collect, OfficeCollect, Office, Recharge, Closed }) {
+  constructor({ User, Session, Affiliation, Product, Activation, Banner, Promo, Prom, Plan, Token, Transaction, Tree, Collect, OfficeCollect, Office, Recharge, Closed, Membership, Lot }) {
     this.User        = User
     this.Session     = Session
     this.Affiliation = Affiliation
@@ -22,6 +22,8 @@ class DB {
     this.Office      = Office
     this.Recharge    = Recharge
     this.Closed      = Closed
+    this.Membership  = Membership
+    this.Lot         = Lot
   }
 }
 
@@ -619,6 +621,86 @@ class Closed {
   }
 }
 
+class Membership {
+  async findOne(query) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn   = await client.connect()
+    const db     = conn.db(name)
+    const item   = await db.collection('membresias').findOne(query)
+    client.close()
+    return item
+  }
+  async find(query) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn   = await client.connect()
+    const db     = conn.db(name)
+    const items  = await db.collection('membresias').find(query).toArray()
+    client.close()
+    return items
+  }
+  async insert(item) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn   = await client.connect()
+    const db     = conn.db(name)
+    await db.collection('membresias').insertOne(item)
+    return client.close()
+  }
+  async update(query, values) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn   = await client.connect()
+    const db     = conn.db(name)
+    await db.collection('membresias').updateOne(query, { $set: values })
+    return client.close()
+  }
+  async delete(query) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn   = await client.connect()
+    const db     = conn.db(name)
+    await db.collection('membresias').deleteOne(query)
+    return client.close()
+  }
+}
+
+class Lot {
+  async findOne(query) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn   = await client.connect()
+    const db     = conn.db(name)
+    const item   = await db.collection('lote').findOne(query)
+    client.close()
+    return item
+  }
+  async find(query) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn   = await client.connect()
+    const db     = conn.db(name)
+    const items  = await db.collection('lote').find(query).toArray()
+    client.close()
+    return items
+  }
+  async insert(item) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn   = await client.connect()
+    const db     = conn.db(name)
+    await db.collection('lote').insertOne(item)
+    return client.close()
+  }
+  async update(query, values) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn   = await client.connect()
+    const db     = conn.db(name)
+    await db.collection('lote').updateOne(query, { $set: values })
+    return client.close()
+  }
+  async delete(query) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn   = await client.connect()
+    const db     = conn.db(name)
+    await db.collection('lote').deleteOne(query)
+    return client.close()
+  }
+}
+
 export default new DB({
   User:        new User(),
   Session:     new Session(),
@@ -637,4 +719,6 @@ export default new DB({
   Office:      new Office(),
   Recharge:    new Recharge(),
   Closed:      new Closed(),
+  Membership:  new Membership(),
+  Lot:         new Lot(),
 })
