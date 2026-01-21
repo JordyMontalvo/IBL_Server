@@ -26,7 +26,19 @@ export default async (req, res) => {
       // console.log('edit ...')
 
       const { id } = req.body
-      const { _name, _type, _price, _points, _img, _code, _description } = req.body.data
+      const { 
+        _name, 
+        _type, 
+        _price, 
+        _points, 
+        _img, 
+        _code, 
+        _description,
+        _subtitle,
+        _duration,
+        _area,
+        _location
+      } = req.body.data
 
       // const beforeProductData = (await Product.find({ id }))[0]
       // console.log('beforeProductData', beforeProductData)
@@ -40,6 +52,10 @@ export default async (req, res) => {
           points: _points,
           img: _img,
           description: _description,
+          subtitle: _subtitle,
+          duration: _duration,
+          area: _area,
+          location: _location,
         }
       )
       // await Plan.updateMany(
@@ -53,7 +69,19 @@ export default async (req, res) => {
     if (action == 'add') {
       // console.log('add ...')
 
-      const { code, name, type, price, points, img, description } = req.body.data
+      const { 
+        code, 
+        name, 
+        type, 
+        price, 
+        points, 
+        img, 
+        description,
+        subtitle,
+        duration,
+        area,
+        location 
+      } = req.body.data
 
       await Product.insert({
         id: rand(),
@@ -64,6 +92,10 @@ export default async (req, res) => {
         points,
         img,
         description,
+        subtitle,
+        duration,
+        area,
+        location,
       })
     }
 
