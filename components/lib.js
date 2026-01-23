@@ -1,4 +1,5 @@
 import Cors from 'cors'
+import cron from 'node-cron'
 
 class Lib {
 
@@ -58,6 +59,46 @@ class Lib {
 
     return ret
   }
+
+  async getBalances(Transaction, userId) {
+    const transactions = await Transaction.find({ user_id: userId })
+    
+    let available = { total: 0, lote: 0, membresia: 0 }
+    let unavailable = { total: 0, lote: 0, membresia: 0 }
+    
+    for(let t of transactions) {
+       const val = (t.type === 'in' ? 1 : -1) * t.value
+       const type = t.activation_type ? t.activation_type.toUpperCase() : 'MEMBRESÍA' // Default to Membresía if missing? Or null.
+       
+       if (t.virtual) {
+          // Unavailable (Usually only INs are virtual)
+          unavailable.total += val
+          if(type === 'LOTE') unavailable.lote += val
+          else unavailable.membresia += val
+       } else {
+          // Available
+          available.total += val
+          // For breakdown, we can only reliably track INs. OUTs are untyped.
+          // BUT, if we want to show "Earnings", we consider INs.
+          // If we want "Balance", we have to assume net.
+          // Let's track INs separately for breakdown.
+          if(t.type === 'in') {
+             if(type === 'LOTE') available.lote += t.value
+             else available.membresia += t.value
+          }
+       }
+    }
+    
+    return { available, unavailable }
+  }
 }
 
-export default new Lib()
+
+import initCron from '../cron/index'
+
+const lib = new Lib()
+lib.cron = cron
+
+// initCron()
+
+export default lib

@@ -33,8 +33,8 @@ async function pay_bonus(id, i, activation_id, amount, type, _id) {
 
   let virtual = false
 
-  if(type = 'MEMBRESIA' && !user._activated) virtual = true
-  if(type = 'LOTE' && !user.activated) virtual = true
+  if(type == 'MEMBRESIA' && !user._activated) virtual = true
+  if(type == 'LOTE' && !user.activated) virtual = true
 
   let p = pay[i]
 
@@ -49,6 +49,7 @@ async function pay_bonus(id, i, activation_id, amount, type, _id) {
     activation_id,
     virtual,
     activation_type: type,
+    name: `comision activacion ${type.toLowerCase()}`,
     _user_id: _id,
   })
 

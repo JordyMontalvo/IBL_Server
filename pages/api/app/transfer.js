@@ -19,12 +19,15 @@ const handler = async (req, res) => {
   // get user
   const user = await User.findOne({ id: session.id })
 
-  // get transactions
-  const transactions = await Transaction.find({ user_id: user.id, virtual: {$in: [null, false]} })
+  // get balances
+  // const transactions = await Transaction.find({ user_id: user.id, virtual: {$in: [null, false]} })
 
-  const ins  = acum(transactions, {type: 'in' }, 'value')
-  const outs = acum(transactions, {type: 'out'}, 'value')
-  const balance = ins - outs
+  // const ins  = acum(transactions, {type: 'in' }, 'value')
+  // const outs = acum(transactions, {type: 'out'}, 'value')
+  // const balance = ins - outs
+  
+  const { available, unavailable } = await lib.getBalances(Transaction, user.id)
+  const balance = available.total
 
 
   if(req.method == 'GET') {
@@ -42,6 +45,10 @@ const handler = async (req, res) => {
       tree:       user.tree,
 
       balance,
+      available_lote: available.lote,
+      available_membresia: available.membresia,
+      unavailable_lote: unavailable.lote,
+      unavailable_membresia: unavailable.membresia,
     }))
   }
 

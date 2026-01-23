@@ -19,11 +19,14 @@ const handler = async (req, res) => {
 
   // get transactions
   // const transactions = await Transaction.find({ userId: user.id })
-  const transactions = await Transaction.find({ user_id: user.id, virtual: {$in: [null, false]} })
+  // const transactions = await Transaction.find({ user_id: user.id, virtual: {$in: [null, false]} })
 
-  const ins  = acum(transactions, {type: 'in'}, 'value')
-  const outs = acum(transactions, {type: 'out'}, 'value')
-  const balance = ins - outs
+  // const ins  = acum(transactions, {type: 'in'}, 'value')
+  // const outs = acum(transactions, {type: 'out'}, 'value')
+  // const balance = ins - outs
+  
+  const { available } = await lib.getBalances(Transaction, user.id)
+  const balance = available.total
 
 
   if(req.method == 'GET') {
