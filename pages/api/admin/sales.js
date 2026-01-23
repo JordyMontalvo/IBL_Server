@@ -1,8 +1,8 @@
 import db from '../../../components/db'
 import lib from '../../../components/lib'
 
-const { Membership, Lot, User } = db
-const { error, success, midd, map, model } = lib
+const { Membership, Lot, User, Transaction, Tree } = db
+const { error, success, midd, map, model, rand } = lib
 
 const U = ['name', 'lastName', 'dni', 'phone']
 
@@ -56,7 +56,57 @@ export default async (req, res) => {
      const Collection = (type === 'MEMBRESÍA') ? Membership : Lot
 
      if (action === 'approve') {
+        const sale = await Collection.findOne({ id })
+        if (!sale) return res.json(error('sale not found'))
+        if (sale.status === 'approved') return res.json(error('already approved'))
+
         await Collection.update({ id }, { status: 'approved' })
+
+        // Pay Commission
+        const sellerId = sale.sellerId || sale.userId
+        if (sellerId) {
+          const users = await User.find({})
+          const tree  = await Tree.find({})
+          const pay   = [0.15, 0.05, 0.03, 0.02, 0.01, 0.005, 0.005]
+
+          const pay_bonus = async (userId, level, saleId, points, type, originUserId) => {
+             if (level >= pay.length) return
+             
+             const user = users.find(u => u.id == userId)
+             if (!user) return
+
+             const node = tree.find(t => t.id == userId)
+             
+             let virtual = false
+             if (type === 'MEMBRESÍA' && !user._activated) virtual = true
+             if (type === 'LOTE' && !user.activated) virtual = true
+             
+             const rate = pay[level]
+             const amount = points * rate
+             
+             if (amount > 0) {
+                await Transaction.insert({
+                  id: rand(),
+                  date: new Date(),
+                  user_id: user.id,
+                  type: 'in',
+                  value: amount,
+                  name: `comision venta ${type.toLowerCase()}`,
+                  sale_id: saleId,
+                  virtual,
+                  activation_type: type,
+                  _user_id: originUserId
+                })
+             }
+             
+             if (node && node.parent) {
+                await pay_bonus(node.parent, level + 1, saleId, points, type, originUserId)
+             }
+          }
+
+          // Start bonus payment from seller
+          await pay_bonus(sellerId, 0, sale.id, sale.points, type, sellerId)
+        }
      }
      if (action === 'reject') {
         await Collection.update({ id }, { status: 'rejected' })
