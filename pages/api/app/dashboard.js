@@ -28,6 +28,16 @@ export default async (req, res) => {
   const outsVirtual = acum(virtualTransactions, {type: 'out'}, 'value')
 
 
+  /* Split virtual balance types */
+  const virtualLote      = virtualTransactions.filter(t => t.activation_type === 'LOTE')
+  const virtualMembresia = virtualTransactions.filter(t => t.activation_type === 'MEMBRESÍA' || t.activation_type === 'MEMBRESIA')
+
+  const insVirtualLote       = acum(virtualLote,      {type: 'in' }, 'value')
+  const outsVirtualLote      = acum(virtualLote,      {type: 'out'}, 'value')
+  const insVirtualMembresia  = acum(virtualMembresia, {type: 'in' }, 'value')
+  const outsVirtualMembresia = acum(virtualMembresia, {type: 'out'}, 'value')
+
+
   const banner = await Banner.findOne({})
 
   // response
@@ -50,6 +60,8 @@ export default async (req, res) => {
     outs,
     balance: (ins - outs),
    _balance: (insVirtual - outsVirtual),
+   _balance_lote: (insVirtualLote - outsVirtualLote),
+   _balance_membresia: (insVirtualMembresia - outsVirtualMembresia),
     rank:    user.rank,
     points:  user.points,
   }))
