@@ -172,6 +172,17 @@ export default async (req, res) => {
           console.log({ transaction })
           await Transaction.update({ id: transaction.id }, { virtual: false })
         }
+      } else if (_activated) {
+        // migrar solo transacciones de membresia
+        const transactions = await Transaction.find({ user_id: user.id, virtual: true })
+
+        for (let transaction of transactions) {
+          // Check both accented and unaccented variations to be safe
+          if (transaction.activation_type === 'MEMBRESÍA' || transaction.activation_type === 'MEMBRESIA') {
+             console.log('Unlocking membership bonus:', transaction)
+             await Transaction.update({ id: transaction.id }, { virtual: false })
+          }
+        }
       }
 
 
