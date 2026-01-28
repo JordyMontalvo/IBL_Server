@@ -44,15 +44,18 @@ export default async (req, res) => {
   if(req.method == 'GET') {
 
     // get activations, memberships, lots
-    let activations = await Activation.find({ userId: user.id })
-    let memberships = await Membership.find({ userId: user.id }) // Assuming userId is the field
-    let lots        = await Lot.find({ userId: user.id })        // Assuming userId is the field
+    // Use $or to be safe about field names (userId vs user_id)
+    const userQuery = { $or: [{ userId: user.id }, { user_id: user.id }] }
+    
+    let activations = await Activation.find({ userId: user.id }) // Activation definitely uses userId based on existing code
+    let memberships = await Membership.find(userQuery) 
+    let lots        = await Lot.find(userQuery)
 
     // Normalize Memberships
     const membershipsNormalized = memberships.map(m => ({
         ...m,
         id: m.id,
-        date: m.date,
+        date: m.date || new Date(), // Fallback date
         price: m.price || 0,
         points: m.points || 0,
         voucher: m.voucher || null,
@@ -65,7 +68,7 @@ export default async (req, res) => {
     const lotsNormalized = lots.map(l => ({
         ...l,
         id: l.id,
-        date: l.date,
+        date: l.date || new Date(), // Fallback date
         price: l.price || 0,
         points: l.points || 0,
         voucher: l.voucher || null,
