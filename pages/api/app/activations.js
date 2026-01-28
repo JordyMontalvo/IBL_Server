@@ -45,18 +45,31 @@ export default async (req, res) => {
 
     // get activations, memberships, lots
     // Broadest query to capture all purchase variations where this user is the buyer
-    // Broadest query to capture all purchase variations where this user is the buyer
-    const userQuery = { 
-        $or: [
-            { userId: user.id }, 
-            { user_id: user.id },
-            { 'buyer.id': user.id }, 
-            { 'buyer._id': user.id }, // Potential variations
-            { 'buyer.userId': user.id },
-            { 'buyer.dni': user.dni }, 
-             { buyer: user.id }
-        ]
-    }
+    const userId      = user.id
+    const userMongoId = user._id ? user._id.toString() : null
+    
+    const possibleIds = [userId]
+    if (userMongoId) possibleIds.push(userMongoId)
+    if (user.dni)    possibleIds.push(user.dni)
+
+    // Build $or array dynamically
+    const orConditions = []
+    
+    // Fields to check against possible IDs
+    const fieldsToCheck = [
+        'userId', 'user_id',
+        'buyer.id', 'buyer._id', 'buyer.userId', 
+        'buyer', // In case buyer is just the ID string
+        'buyer.dni' // Will check strictly against DNI if present in possibleIds
+    ]
+
+    fieldsToCheck.forEach(field => {
+        possibleIds.forEach(val => {
+            if (val) orConditions.push({ [field]: val })
+        })
+    })
+
+    const userQuery = { $or: orConditions }
     
     let activations = await Activation.find({ userId: user.id }) 
     let memberships = await Membership.find(userQuery) 
