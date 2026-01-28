@@ -37,7 +37,8 @@ const transactions = async (req, res) => {
 
       const u = users.find(e => e.id == a._user_id)
 
-      return { ...a, user_name: u.name + ' ' + u.lastName }
+      const user_name = u ? (u.name + ' ' + u.lastName) : 'Usuario desconocido'
+      return { ...a, user_name }
 
     }
 
