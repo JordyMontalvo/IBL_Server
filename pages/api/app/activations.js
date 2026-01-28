@@ -44,33 +44,54 @@ export default async (req, res) => {
   if(req.method == 'GET') {
 
     // get activations, memberships, lots
-    // Broadest query to capture all purchase variations where this user is the buyer
-    const userId      = user.id
-    const userMongoId = user._id ? user._id.toString() : null
-    
-    const possibleIds = [userId]
-    if (userMongoId) possibleIds.push(userMongoId)
-    if (user.dni)    possibleIds.push(user.dni)
+    // Build exhaustive conditions to find the user in the purchase record
+    const conditions = []
 
-    // Build $or array dynamically
-    const orConditions = []
-    
-    // Fields to check against possible IDs
-    const fieldsToCheck = [
-        'userId', 'user_id',
-        'buyer.id', 'buyer._id', 'buyer.userId', 
-        'buyer', // In case buyer is just the ID string
-        'buyer.dni' // Will check strictly against DNI if present in possibleIds
-    ]
+    // 1. Check by Custom ID (user.id)
+    if (user.id) {
+        conditions.push({ userId: user.id })      // Standard
+        conditions.push({ user_id: user.id })     // Legacy/Alt
+        conditions.push({ 'buyer.id': user.id })  // Buyer Object
+        conditions.push({ 'buyer.userId': user.id }) 
+    }
 
-    fieldsToCheck.forEach(field => {
-        possibleIds.forEach(val => {
-            if (val) orConditions.push({ [field]: val })
-        })
-    })
+    // 2. Check by DNI (National ID)
+    if (user.dni) {
+        conditions.push({ 'buyer.dni': user.dni })
+        // Try identifying as 'cedula' just in case
+        conditions.push({ 'buyer.cedula': user.dni })
+        // Handle potential string vs number type mismatch for DNI
+        if (typeof user.dni === 'string') {
+             // If valid number, check number version too
+             const num = Number(user.dni)
+             if (!isNaN(num)) conditions.push({ 'buyer.dni': num })
+        } else {
+             // If number, check string version
+             conditions.push({ 'buyer.dni': String(user.dni) })
+        }
+    }
 
-    const userQuery = { $or: orConditions }
+    // 3. Check by Email (Robust fallback)
+    if (user.email) {
+        conditions.push({ 'buyer.email': user.email })
+    }
+
+    // 4. Check by MongoDB ObjectId (user._id)
+    if (user._id) {
+        const oid = user._id
+        const oidStr = user._id.toString()
+        
+        conditions.push({ 'buyer._id': oid })      // Match ObjectId
+        conditions.push({ 'buyer.id': oid })       // In case stored as ObjectId in id field
+        conditions.push({ 'buyer._id': oidStr })   // Match String representation
+        conditions.push({ 'buyer.id': oidStr })    // Match String in id field
+    }
+
+    const userQuery = { $or: conditions }
     
+    // Debug log (server side)
+    console.log('Searching memberships/lots for user:', user.name, 'Query options:', conditions.length)
+
     let activations = await Activation.find({ userId: user.id }) 
     let memberships = await Membership.find(userQuery) 
     let lots        = await Lot.find(userQuery)
