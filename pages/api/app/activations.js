@@ -44,10 +44,19 @@ export default async (req, res) => {
   if(req.method == 'GET') {
 
     // get activations, memberships, lots
-    // Use $or to be safe about field names (userId vs user_id)
-    const userQuery = { $or: [{ userId: user.id }, { user_id: user.id }] }
+    // Broadest query to capture all purchase variations where this user is the buyer
+    const userQuery = { 
+        $or: [
+            { userId: user.id }, 
+            { user_id: user.id },
+            { 'buyer.id': user.id }, // Common pattern for direct sales 
+            { 'buyer.dni': user.dni }, // Fallback identification
+             // Some records might store just the buyer ID string in a 'buyer' field? Unlikely but safe to check if simple string
+             { buyer: user.id }
+        ]
+    }
     
-    let activations = await Activation.find({ userId: user.id }) // Activation definitely uses userId based on existing code
+    let activations = await Activation.find({ userId: user.id }) 
     let memberships = await Membership.find(userQuery) 
     let lots        = await Lot.find(userQuery)
 
