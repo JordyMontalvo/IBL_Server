@@ -45,13 +45,15 @@ export default async (req, res) => {
 
     // get activations, memberships, lots
     // Broadest query to capture all purchase variations where this user is the buyer
+    // Broadest query to capture all purchase variations where this user is the buyer
     const userQuery = { 
         $or: [
             { userId: user.id }, 
             { user_id: user.id },
-            { 'buyer.id': user.id }, // Common pattern for direct sales 
-            { 'buyer.dni': user.dni }, // Fallback identification
-             // Some records might store just the buyer ID string in a 'buyer' field? Unlikely but safe to check if simple string
+            { 'buyer.id': user.id }, 
+            { 'buyer._id': user.id }, // Potential variations
+            { 'buyer.userId': user.id },
+            { 'buyer.dni': user.dni }, 
              { buyer: user.id }
         ]
     }
