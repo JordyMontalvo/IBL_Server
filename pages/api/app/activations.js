@@ -93,6 +93,20 @@ export default async (req, res) => {
         conditions.push({ 'transactions._user_id': user.id }) // Sometimes stored as reference
     }
 
+    // 6. Fallback: Search by Name (Case Insensitive Regex) - Last resort if IDs fail
+    // This helps if the record has 'buyer.name' but no valid ID
+    if (user.name) {
+        try {
+            const nameRegex = new RegExp(user.name, 'i')
+            conditions.push({ 'buyer.name': nameRegex })
+        } catch (e) {}
+    }
+    
+    // 7. Fallback: Search by Email inside buyer object (incase it wasn't caught above)
+    if (user.email) {
+        conditions.push({ 'buyer.email': user.email })
+    }
+
     const userQuery = { $or: conditions }
     
     // Debug log (server side)
