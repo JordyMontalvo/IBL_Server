@@ -61,30 +61,44 @@ export default async (req, res) => {
     let lots        = await Lot.find(userQuery)
 
     // Normalize Memberships
-    const membershipsNormalized = memberships.map(m => ({
-        ...m,
-        id: m.id,
-        date: m.date || new Date(), // Fallback date
-        price: m.price || 0,
-        points: m.points || 0,
-        voucher: m.voucher || null,
-        status: m.status,
-        products: [{ name: 'Membresía ' + (m.name || ''), total: 1 }],
-        type: 'MEMBRESÍA'
-    }))
+    const membershipsNormalized = memberships.map(m => {
+        let name = m.name || ''
+        if (!name.toUpperCase().includes('MEMBRESÍA') && !name.toUpperCase().includes('MEMBRESIA')) {
+            name = 'Membresía ' + name
+        }
+        
+        return {
+            ...m,
+            id: m.id,
+            date: m.date || new Date(),
+            price: m.price || 0,
+            points: m.points || 0,
+            voucher: m.voucher || null,
+            status: m.status,
+            products: [{ name: name, total: 1, image: m.productImg }],
+            type: 'MEMBRESÍA'
+        }
+    })
 
     // Normalize Lots
-    const lotsNormalized = lots.map(l => ({
-        ...l,
-        id: l.id,
-        date: l.date || new Date(), // Fallback date
-        price: l.price || 0,
-        points: l.points || 0,
-        voucher: l.voucher || null,
-        status: l.status,
-        products: [{ name: 'Lote ' + (l.name || ''), total: 1 }],
-        type: 'LOTE'
-    }))
+    const lotsNormalized = lots.map(l => {
+        let name = l.name || ''
+        if (!name.toUpperCase().includes('LOTE')) {
+            name = 'Lote ' + name
+        }
+
+        return {
+            ...l,
+            id: l.id,
+            date: l.date || new Date(),
+            price: l.price || 0,
+            points: l.points || 0,
+            voucher: l.voucher || null,
+            status: l.status,
+            products: [{ name: name, total: 1, image: l.productImg }],
+            type: 'LOTE'
+        }
+    })
 
     // Merge all
     activations = [...activations, ...membershipsNormalized, ...lotsNormalized]
