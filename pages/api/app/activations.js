@@ -51,14 +51,26 @@ export default async (req, res) => {
     // Normalize Memberships
     const membershipsNormalized = memberships.map(m => ({
         ...m,
-        products: [{ name: 'Membresía ' + m.name, total: 1 }],
+        id: m.id,
+        date: m.date,
+        price: m.price || 0,
+        points: m.points || 0,
+        voucher: m.voucher || null,
+        status: m.status,
+        products: [{ name: 'Membresía ' + (m.name || ''), total: 1 }],
         type: 'MEMBRESÍA'
     }))
 
     // Normalize Lots
     const lotsNormalized = lots.map(l => ({
         ...l,
-        products: [{ name: 'Lote ' + l.name, total: 1 }],
+        id: l.id,
+        date: l.date,
+        price: l.price || 0,
+        points: l.points || 0,
+        voucher: l.voucher || null,
+        status: l.status,
+        products: [{ name: 'Lote ' + (l.name || ''), total: 1 }],
         type: 'LOTE'
     }))
 
