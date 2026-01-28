@@ -19,7 +19,10 @@ export default async (req, res) => {
     const  u = users.find(e => e.id == a.user_id)
     const _u = users.find(e => e.id == a._user_id)
 
-    return { ...a, name: u.name + u.lastName, _name: _u.name + _u.lastName}
+    const name  = u ? (u.name + ' ' + u.lastName) : 'Usuario desconocido'
+    const _name = _u ? (_u.name + ' ' + _u.lastName) : 'Usuario desconocido'
+
+    return { ...a, name, _name }
   })
 
 

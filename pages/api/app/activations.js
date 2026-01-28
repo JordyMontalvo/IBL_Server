@@ -1,7 +1,7 @@
 import db  from "../../../components/db"
 import lib from "../../../components/lib"
 
-const { User, Session, Activation } = db
+const { User, Session, Activation, Membership, Lot } = db
 const { error, success, midd } = lib
 
 
@@ -43,8 +43,30 @@ export default async (req, res) => {
 
   if(req.method == 'GET') {
 
-    // get activations
-    const activations = await Activation.find({ userId: user.id })
+    // get activations, memberships, lots
+    let activations = await Activation.find({ userId: user.id })
+    let memberships = await Membership.find({ userId: user.id }) // Assuming userId is the field
+    let lots        = await Lot.find({ userId: user.id })        // Assuming userId is the field
+
+    // Normalize Memberships
+    const membershipsNormalized = memberships.map(m => ({
+        ...m,
+        products: [{ name: 'Membresía ' + m.name, total: 1 }],
+        type: 'MEMBRESÍA'
+    }))
+
+    // Normalize Lots
+    const lotsNormalized = lots.map(l => ({
+        ...l,
+        products: [{ name: 'Lote ' + l.name, total: 1 }],
+        type: 'LOTE'
+    }))
+
+    // Merge all
+    activations = [...activations, ...membershipsNormalized, ...lotsNormalized]
+    
+    // Sort by date desc
+    activations.sort((a, b) => new Date(b.date) - new Date(a.date))
 
     // const all_points = user.all_points
     // const n = all_points.length
