@@ -87,10 +87,16 @@ export default async (req, res) => {
         conditions.push({ 'buyer.id': oidStr })    // Match String in id field
     }
 
+    // 5. Check inside 'transactions' array (Common in this schema)
+    if (user.id) {
+        conditions.push({ 'transactions.user_id': user.id })
+        conditions.push({ 'transactions._user_id': user.id }) // Sometimes stored as reference
+    }
+
     const userQuery = { $or: conditions }
     
     // Debug log (server side)
-    console.log('Searching memberships/lots for user:', user.name, 'Query options:', conditions.length)
+    console.log('Searching memberships/lots for user:', user.name, 'Conditions:', JSON.stringify(conditions))
 
     let activations = await Activation.find({ userId: user.id }) 
     let memberships = await Membership.find(userQuery) 
