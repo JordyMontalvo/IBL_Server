@@ -107,6 +107,14 @@ export default async (req, res) => {
         conditions.push({ 'buyer.email': user.email })
     }
 
+    // 8. FINAL FALLBACK: Check 'sellerId'. 
+    // In some edge cases (e.g. self-registration or specific legacy data), 
+    // the user might be listed as the seller but considers it their record.
+    // The user explicitly requested to see records where they appear as sellerId if buyer is empty/invalid.
+    if (user.id) {
+        conditions.push({ sellerId: user.id })
+    }
+
     const userQuery = { $or: conditions }
     
     // Debug log (server side)
