@@ -1,4 +1,3 @@
-import { EventEmitterAsyncResource } from "mongodb/lib/apm"
 import db from "../../../components/db"
 import lib from "../../../components/lib"
 
@@ -125,12 +124,21 @@ export default async (req, res) => {
       })
     }
   } else {
-    // If NO sales, show 3 placeholder periods
+    // If NO closed sales (but potentially current sales), show 3 placeholder periods
+    const currentLots = salesByPeriod['current'] || 0
+    currentCycle.accumulatedLots = currentLots
     currentCycle.periods = [
-      { label: '1er Período', month: 'Actual', lots: 0, status: 'pending', prize: 'Cena', date: 'Ahora' },
+      { label: '1er Período', month: 'Actual', lots: currentLots, status: 'pending', prize: 'Cena', date: 'Ahora' },
       { label: '2do Período', month: 'Próximo', lots: 0, status: 'locked', prize: 'Viaje', date: '-' },
       { label: '3er Período', month: 'Próximo', lots: 0, status: 'locked', prize: 'Yate/Bono', date: '-' }
     ]
+
+    // Update prize statuses for initial/current sales
+    currentCycle.prizes.forEach(p => {
+      if (currentCycle.accumulatedLots >= p.lots) {
+        p.status = 'completed'
+      }
+    })
   }
 
   // response
