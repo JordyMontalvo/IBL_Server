@@ -4,7 +4,7 @@ const name = process.env.DB_NAME
 const Client = require('mongodb').MongoClient
 
 class DB {
-  constructor({ User, Session, Affiliation, Product, Activation, Banner, Promo, Prom, Plan, Token, Transaction, Tree, Collect, OfficeCollect, Office, Recharge, Closed, Membership, Lot }) {
+  constructor({ User, Session, Affiliation, Product, Activation, Banner, Promo, Prom, Plan, Token, Transaction, Tree, Collect, OfficeCollect, Office, Recharge, Closed, Membership, Lot, BonoPrize }) {
     this.User = User
     this.Session = Session
     this.Affiliation = Affiliation
@@ -24,6 +24,7 @@ class DB {
     this.Closed = Closed
     this.Membership = Membership
     this.Lot = Lot
+    this.BonoPrize = BonoPrize
   }
 }
 
@@ -701,6 +702,31 @@ class Lot {
   }
 }
 
+class BonoPrize {
+  async find(query) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn = await client.connect()
+    const db = conn.db(name)
+    const items = await db.collection('bono_prizes').find(query).toArray()
+    client.close()
+    return items
+  }
+  async insert(item) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn = await client.connect()
+    const db = conn.db(name)
+    await db.collection('bono_prizes').insertOne(item)
+    return client.close()
+  }
+  async update(query, values) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn = await client.connect()
+    const db = conn.db(name)
+    await db.collection('bono_prizes').updateOne(query, { $set: values })
+    return client.close()
+  }
+}
+
 export default new DB({
   User: new User(),
   Session: new Session(),
@@ -721,4 +747,5 @@ export default new DB({
   Closed: new Closed(),
   Membership: new Membership(),
   Lot: new Lot(),
+  BonoPrize: new BonoPrize(),
 })
