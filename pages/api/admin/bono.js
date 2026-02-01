@@ -52,10 +52,10 @@ export default async (req, res) => {
                     cyclePeriodDates.forEach(d => {
                         detail.accumulatedLots += salesByPeriod[d.toISOString()] || 0
                     })
-                    // Include current period
-                    detail.accumulatedLots += salesByPeriod['current'] || 0
                 }
             }
+            // Always include current period sales
+            detail.accumulatedLots += salesByPeriod['current'] || 0
 
             detail.milestones.forEach(m => {
                 if (detail.accumulatedLots >= m.lots) m.status = 'completed'
@@ -110,18 +110,27 @@ export default async (req, res) => {
                         accumulated += salesByPeriod[d.toISOString()] || 0
                     })
 
+                    const currentLots = salesByPeriod['current'] || 0
+                    accumulated += currentLots
+
                     let currentPeriodLabel = '-'
                     if (activePeriodsCount < 3) {
-                        const currentLots = salesByPeriod['current'] || 0
-                        accumulated += currentLots
                         currentPeriodLabel = `${activePeriodsCount + 1}er Periodo`
                     } else {
                         currentPeriodLabel = 'Finalizado'
                     }
 
-                    bonoData.ciclo = 'Ciclo 1' // Simplified, can be expanded to Multiple cycles if logic exists
+                    bonoData.ciclo = 'Ciclo 1'
                     bonoData.periodoEnCiclo = currentPeriodLabel
                     bonoData.lotesAcumulados = accumulated
+                }
+            } else {
+                // Handle case with only current sales
+                const currentLots = salesByPeriod['current'] || 0
+                if (currentLots > 0) {
+                    bonoData.ciclo = 'Ciclo 1'
+                    bonoData.periodoEnCiclo = '1er Periodo'
+                    bonoData.lotesAcumulados = currentLots
                 }
             }
 
