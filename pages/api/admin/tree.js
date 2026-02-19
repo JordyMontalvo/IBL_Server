@@ -13,6 +13,7 @@ function find(id, n) {
 
   const node = tree.find(e => e.id == id)
 
+  if(!node) return // nodo no encontrado en el árbol
 
   if(node.childs.length == 0) return
 
@@ -25,7 +26,7 @@ function find(id, n) {
 
   node.childs.forEach(_id => {
     const _node = tree.find(e => e.id == _id)
-    node._childs.push(_node)
+    if(_node) node._childs.push(_node)
   })
 }
 
@@ -45,10 +46,16 @@ export default async (req, res) => {
 
   tree  = await Tree.find({})
 
-  users = await User.find({ tree: true })
+  users = await User.find({})
 
   tree.forEach(node => {
     const user = users.find(e => e.id == node.id)
+    if (!user) {
+      console.warn(`[tree.js] No se encontró usuario para el nodo id=${node.id}`)
+      node.name = 'Usuario no encontrado'
+      node.dni  = node.id
+      return
+    }
     // node.name = user.name + ' ' + user.lastName
     node.name = user.name
     node.dni  = user.dni
