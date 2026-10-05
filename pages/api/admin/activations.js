@@ -1,7 +1,7 @@
 import db from "../../../components/db"
 import lib from "../../../components/lib"
 
-const { Activation, User, Tree, Token, Office, Transaction } = db
+const { Activation, User, Tree, Token, Office, Transaction, Product } = db
 const { error, success, midd, ids, map, model, rand } = lib
 
 // valid filters
@@ -157,10 +157,23 @@ export default async (req, res) => {
       console.log({ activated });
       
 
+      let closuresToAdd = 0;
+      for (let p of activation.products) {
+        if (p.total > 0) {
+          const productDoc = await Product.findOne({ name: p.name });
+          if (productDoc && productDoc.duration) {
+             closuresToAdd = Math.max(closuresToAdd, Number(productDoc.duration));
+          }
+        }
+      }
+      
+      const closures_left = (user.closures_left || 0) + closuresToAdd;
+
       await User.update({ id: user.id }, {
         activated,
         _activated,
         points: points_total,
+        closures_left,
       })
 
       if (activated) {

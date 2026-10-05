@@ -467,13 +467,22 @@ export default async (req, res) => {
       console.log('5')
 
       await User.updateMany({}, {
-        activated: false,
-       _activated: false,
         rank: 'none',
         points: 0,
         affiliation_points: 0,
       })
-      console.log('6')
+      console.log('6.1')
+
+      // Disminuir los cierres restantes de las activaciones
+      await User.updateInc({}, { closures_left: -1 })
+      console.log('6.2')
+
+      // Desactivar solo a los usuarios que se quedaron sin cierres de vigencia
+      await User.updateMany({ closures_left: { $lte: 0 } }, {
+        activated: false,
+        _activated: false,
+      })
+      console.log('6.3')
 
       for (let node of tree) {
         if(node.rank != 'none') {
