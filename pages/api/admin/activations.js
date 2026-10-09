@@ -24,39 +24,7 @@ function find(id, i) { // i: branch
 let users = null
 let tree = null
 
-const pay = [0.15, 0.05, 0.03, 0.02, 0.01, 0.005, 0.005]
 
-async function pay_bonus(id, i, activation_id, amount, type, _id) {
-
-  const user = users.find(e => e.id == id)
-  const node = tree.find(e => e.id == id)
-
-  let virtual = false
-
-  if(type == 'MEMBRESIA' && !user._activated) virtual = true
-  if(type == 'LOTE' && !user.activated) virtual = true
-
-  let p = pay[i]
-
-  console.log({ p, amount })
-
-  await Transaction.insert({
-    id: rand(),
-    date: new Date(),
-    user_id: user.id,
-    type: 'in',
-    value: p * amount,
-    activation_id,
-    virtual,
-    activation_type: type,
-    name: `comision activacion ${type.toLowerCase()}`,
-    _user_id: _id,
-  })
-
-  if (i == 6 || !node.parent) return
-
-  pay_bonus(node.parent, i + 1, activation_id, amount, type, _id)
-}
 
 
 export default async (req, res) => {
@@ -139,63 +107,38 @@ export default async (req, res) => {
       //   (products) => products.name === "ACTIVACIÓN LOTES" || products.name === "ACTIVACIÓN MEMBRESIAS"
       // );
 
-      const ActiproductMemb = activation.products.some(
-        (products) => (products.name === "ACTIVACIÓN MEMBRESIAS" && products.total > 0)
-      );
-
-      const ActiproductLote = activation.products.some(
-        (products) => (products.name === "ACTIVACIÓN LOTES" && products.total > 0)
-      );
-      
-      // Actualizar `_activated` y `activated` basados únicamente en la compra aprobada de productos específicos
-      // const _activated = user._activated ? true : Actiproduct;
-      const _activated = (ActiproductMemb || ActiproductLote) ? true : user._activated;
-      console.log({ _activated });
-      
-      // const activated = user.activated ? true : Actiproduct;
-      const activated = ActiproductLote ? true : user.activated;
-      console.log({ activated });
-      
-
-      let closuresToAdd = 0;
-      for (let p of activation.products) {
+      let closuresToAdd = 0
+      for (let p of (activation.products || [])) {
         if (p.total > 0) {
-          const productDoc = await Product.findOne({ name: p.name });
+          const productDoc = (await Product.findOne({ id: p.id })) || (await Product.findOne({ name: p.name }))
+          let duration = 1
           if (productDoc && productDoc.duration) {
-             closuresToAdd = Math.max(closuresToAdd, Number(productDoc.duration));
+            duration = Number(productDoc.duration)
+          } else if (p.duration) {
+            duration = Number(p.duration)
+          } else {
+            const normName = String(p.name || '').toUpperCase()
+            if (normName.includes('ANUAL')) duration = 12
+            else if (normName.includes('MENSUAL')) duration = 1
           }
+          closuresToAdd = Math.max(closuresToAdd, duration)
         }
       }
-      
-      const closures_left = (user.closures_left || 0) + closuresToAdd;
+      if (closuresToAdd === 0) closuresToAdd = 1
+
+      const closures_left = (user.closures_left || 0) + closuresToAdd
 
       await User.update({ id: user.id }, {
-        activated,
-        _activated,
+        activated: true,
+        _activated: true,
         points: points_total,
         closures_left,
       })
 
-      if (activated) {
-
-        // migrar transaccinoes virtuales
-        const transactions = await Transaction.find({ user_id: user.id, virtual: true })
-
-        for (let transaction of transactions) {
-          console.log({ transaction })
-          await Transaction.update({ id: transaction.id }, { virtual: false })
-        }
-      } else if (_activated) {
-        // migrar solo transacciones de membresia
-        const transactions = await Transaction.find({ user_id: user.id, virtual: true })
-
-        for (let transaction of transactions) {
-          // Check both accented and unaccented variations to be safe
-          if (transaction.activation_type === 'MEMBRESÍA' || transaction.activation_type === 'MEMBRESIA') {
-             console.log('Unlocking membership bonus:', transaction)
-             await Transaction.update({ id: transaction.id }, { virtual: false })
-          }
-        }
+      // Migrar y habilitar todo el saldo retenido (saldo no disponible a disponible)
+      const transactions = await Transaction.find({ user_id: user.id, virtual: true })
+      for (let transaction of transactions) {
+        await Transaction.update({ id: transaction.id }, { virtual: false })
       }
 
 
@@ -240,29 +183,7 @@ export default async (req, res) => {
       // })
 
 
-      // PAY BONUS
-      console.log('PAY BONUS ...')
 
-      tree = await Tree.find({})
-      users = await User.find({})
-
-      console.log({ points: activation.points})
-
-      const productMemb = activation.products.some(
-        (products) => (products.type === "MEMBRESIA" && products.total > 0)
-      );
-
-      const productLote = activation.products.some(
-        (products) => (products.type === "TERRENO" && products.total > 0)
-      );
-
-      if(productMemb) {
-        pay_bonus(user.parentId, 0, activation.id, activation.points, 'MEMBRESIA', user.id)
-      }
-
-      if(productLote) {
-        pay_bonus(user.parentId, 0, activation.id, activation.points, 'LOTE', user.id)
-      }
 
       // if (user.parentId) {
 

@@ -157,6 +157,9 @@ export default async (req, res) => {
       }
     }
 
+    const isFullBalance = check && c === 0
+    const status = isFullBalance ? 'approved' : 'pending'
+
     // save new activation
     await Activation.insert({
       id:     rand(),
@@ -172,7 +175,7 @@ export default async (req, res) => {
       transactions,
       amounts,
       office,
-      status: 'pending',
+      status,
       delivered: false,
 
       pay_method,
@@ -180,6 +183,43 @@ export default async (req, res) => {
       voucher_date: date,
       voucher_number,
     })
+
+    if (isFullBalance) {
+      let closuresToAdd = 0
+      for (let p of (products || [])) {
+        if (p.total > 0) {
+          const productDoc = (await Product.findOne({ id: p.id })) || (await Product.findOne({ name: p.name }))
+          let duration = 1
+          if (productDoc && productDoc.duration) {
+            duration = Number(productDoc.duration)
+          } else if (p.duration) {
+            duration = Number(p.duration)
+          } else {
+            const normName = String(p.name || '').toUpperCase()
+            if (normName.includes('ANUAL')) duration = 12
+            else if (normName.includes('MENSUAL')) duration = 1
+          }
+          closuresToAdd = Math.max(closuresToAdd, duration)
+        }
+      }
+      if (closuresToAdd === 0) closuresToAdd = 1
+
+      const closures_left = (user.closures_left || 0) + closuresToAdd
+      const points_total = (user.points || 0) + points
+
+      await User.update({ id: user.id }, {
+        activated: true,
+        _activated: true,
+        points: points_total,
+        closures_left,
+      })
+
+      // Liberar todo el saldo retenido (saldo no disponible a disponible)
+      const virtualTxs = await Transaction.find({ user_id: user.id, virtual: true })
+      for (let t of virtualTxs) {
+        await Transaction.update({ id: t.id }, { virtual: false })
+      }
+    }
 
     // response
     return res.json(success())

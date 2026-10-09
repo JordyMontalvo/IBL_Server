@@ -508,13 +508,8 @@ export default async (req, res) => {
       console.log('9')
 
 
-      const virtualTransactions = await Transaction.find({ virtual: true })
-
-      for(let transaction of virtualTransactions) {
-        await Transaction.delete(
-          { id: transaction.id }
-        )
-      }
+      // Eliminar el saldo no disponible (virtual) de los usuarios que continuaron inactivos
+      await Transaction.deleteMany({ virtual: true })
     }
 
     // response

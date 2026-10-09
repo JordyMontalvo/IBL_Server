@@ -4,7 +4,7 @@ const name = process.env.DB_NAME
 const Client = require('mongodb').MongoClient
 
 class DB {
-  constructor({ User, Session, Affiliation, Product, Activation, Banner, Promo, Prom, Plan, Token, Transaction, Tree, Collect, OfficeCollect, Office, Recharge, Closed, Membership, Lot, BonoPrize }) {
+  constructor({ User, Session, Affiliation, Product, Activation, Banner, Promo, Prom, Plan, Token, Transaction, Tree, Collect, OfficeCollect, Office, Recharge, Closed, Membership, Lot, BonoPrize, Setting }) {
     this.User = User
     this.Session = Session
     this.Affiliation = Affiliation
@@ -25,6 +25,7 @@ class DB {
     this.Membership = Membership
     this.Lot = Lot
     this.BonoPrize = BonoPrize
+    this.Setting = Setting
   }
 }
 
@@ -421,6 +422,13 @@ class Transaction {
     await db.collection('transactions').deleteOne(query)
     return client.close()
   }
+  async deleteMany(query) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn = await client.connect()
+    const db = conn.db(name)
+    await db.collection('transactions').deleteMany(query)
+    return client.close()
+  }
 }
 
 class Tree {
@@ -727,6 +735,31 @@ class BonoPrize {
   }
 }
 
+class Setting {
+  async findOne(query) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn = await client.connect()
+    const db = conn.db(name)
+    const item = await db.collection('settings').findOne(query)
+    client.close()
+    return item
+  }
+  async insert(item) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn = await client.connect()
+    const db = conn.db(name)
+    await db.collection('settings').insertOne(item)
+    return client.close()
+  }
+  async update(query, values) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn = await client.connect()
+    const db = conn.db(name)
+    await db.collection('settings').updateOne(query, { $set: values }, { upsert: true })
+    return client.close()
+  }
+}
+
 export default new DB({
   User: new User(),
   Session: new Session(),
@@ -748,4 +781,5 @@ export default new DB({
   Membership: new Membership(),
   Lot: new Lot(),
   BonoPrize: new BonoPrize(),
+  Setting: new Setting(),
 })

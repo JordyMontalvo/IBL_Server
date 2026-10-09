@@ -1,7 +1,7 @@
 import db from '../../../components/db'
 import lib from '../../../components/lib'
 
-const { Membership, Lot, User, Transaction, Tree } = db
+const { Membership, Lot, User, Transaction, Tree, Setting } = db
 const { error, success, midd, map, model, rand } = lib
 
 const U = ['name', 'lastName', 'dni', 'phone']
@@ -67,9 +67,11 @@ export default async (req, res) => {
         if (sellerId) {
           const users = await User.find({})
           const tree  = await Tree.find({})
-          const pay   = [0.15, 0.05, 0.03, 0.02, 0.01, 0.005, 0.005]
+          
+          let paySettings = await Setting.findOne({ key: 'commission_rates' })
+          const pay = (paySettings && paySettings.rates) ? paySettings.rates : [0.15, 0.05, 0.03, 0.02, 0.01, 0.005, 0.005]
 
-          const pay_bonus = async (userId, level, saleId, points, type, originUserId) => {
+          const pay_bonus = async (userId, level, saleId, price, type, originUserId) => {
              if (level >= pay.length) return
              
              const user = users.find(u => u.id == userId)
@@ -77,12 +79,11 @@ export default async (req, res) => {
 
              const node = tree.find(t => t.id == userId)
              
-             let virtual = false
-             if (type === 'MEMBRESÍA' && !user._activated) virtual = true
-             if (type === 'LOTE' && !user.activated) virtual = true
+             const isActive = Boolean(user._activated || user.activated)
+             const virtual = !isActive
              
-             const rate = pay[level]
-             const amount = points * rate
+             const rate = parseFloat(pay[level])
+             const amount = parseFloat((price * rate).toFixed(2))
              
              if (amount > 0) {
                 await Transaction.insert({
@@ -100,12 +101,12 @@ export default async (req, res) => {
              }
              
              if (node && node.parent) {
-                await pay_bonus(node.parent, level + 1, saleId, points, type, originUserId)
+                await pay_bonus(node.parent, level + 1, saleId, price, type, originUserId)
              }
           }
 
           // Start bonus payment from seller
-          await pay_bonus(sellerId, 0, sale.id, sale.points, type, sellerId)
+          await pay_bonus(sellerId, 0, sale.id, sale.price, type, sellerId)
         }
      }
      if (action === 'reject') {
