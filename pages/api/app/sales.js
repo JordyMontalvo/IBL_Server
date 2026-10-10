@@ -1,7 +1,7 @@
 import db  from "../../../components/db"
 import lib from "../../../components/lib"
 
-const { User, Session, Membership, Lot, Transaction, Office } = db
+const { User, Session, Membership, Lot, Transaction, Office, Activation, Affiliation } = db
 const { error, success, midd, rand, acum } = lib
 
 export default async (req, res) => {
@@ -33,13 +33,40 @@ export default async (req, res) => {
       products, 
       office, 
       check, 
-      voucher, 
+      voucher,
+      voucher2,
       pay_method, 
       bank, 
       date, 
       voucher_number,
+      voucher_number2,
       buyerData 
     } = req.body
+
+    if (pay_method === 'bank' && voucher2 && !voucher_number2) {
+      return res.json(error('Falta el número de operación del segundo comprobante de pago.'))
+    }
+
+    if (pay_method === 'bank') {
+      const numbers = [voucher_number, voucher_number2]
+        .filter((n) => n != null && String(n).trim() !== '')
+        .map((n) => String(n).trim())
+
+      if (numbers.length === 2 && numbers[0] === numbers[1]) {
+        return res.json(error('Los dos comprobantes no pueden tener el mismo número de operación.'))
+      }
+
+      for (const vn of numbers) {
+        const query = { $or: [{ voucher_number: vn }, { voucher_number2: vn }], status: { $in: ['approved', 'pending'] } }
+        const duplicated = await Activation.findOne(query)
+          || await Affiliation.findOne(query)
+          || await Membership.findOne(query)
+          || await Lot.findOne(query)
+        if (duplicated) {
+          return res.json(error(`El número de operación "${vn}" ya ha sido registrado previamente. Por favor, verifica los datos.`))
+        }
+      }
+    }
 
     // Find the product being purchased (assuming single product selection enforcement in UI)
     const product = products.find(p => p.total > 0)
@@ -114,6 +141,7 @@ export default async (req, res) => {
       price,
       points,
       voucher,
+      voucher2: voucher2 || null,
       status: 'pending',
       buyer: buyerData,
       transactions: paymentTransactions,
@@ -121,6 +149,7 @@ export default async (req, res) => {
       bank,
       voucher_date: date,
       voucher_number,
+      voucher_number2: voucher_number2 || null,
       office,
       // Store additional product info if needed
       productId: product.id,

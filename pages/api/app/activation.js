@@ -1,7 +1,7 @@
 import db  from "../../../components/db"
 import lib from "../../../components/lib"
 
-const { User, Session, Product, Activation, Office, Transaction } = db
+const { User, Session, Product, Activation, Affiliation, Membership, Lot, Office, Transaction } = db
 const { error, success, midd, map, rand, acum } = lib
 
 
@@ -90,8 +90,33 @@ export default async (req, res) => {
 
   if(req.method == 'POST') {
 
-    let { products, office, check, voucher, pay_method, bank, date, voucher_number } = req.body
+    let { products, office, check, voucher, voucher2, pay_method, bank, date, voucher_number, voucher_number2 } = req.body
     // let { products, voucher, office } = req.body
+
+    if (pay_method === 'bank' && voucher2 && !voucher_number2) {
+      return res.json(error('Falta el número de operación del segundo comprobante de pago.'))
+    }
+
+    if (pay_method === 'bank') {
+      const numbers = [voucher_number, voucher_number2]
+        .filter((n) => n != null && String(n).trim() !== '')
+        .map((n) => String(n).trim())
+
+      if (numbers.length === 2 && numbers[0] === numbers[1]) {
+        return res.json(error('Los dos comprobantes no pueden tener el mismo número de operación.'))
+      }
+
+      for (const vn of numbers) {
+        const query = { $or: [{ voucher_number: vn }, { voucher_number2: vn }], status: { $in: ['approved', 'pending'] } }
+        const duplicated = await Activation.findOne(query)
+          || await Affiliation.findOne(query)
+          || await Membership.findOne(query)
+          || await Lot.findOne(query)
+        if (duplicated) {
+          return res.json(error(`El número de operación "${vn}" ya ha sido registrado previamente. Por favor, verifica los datos.`))
+        }
+      }
+    }
 
     // console.log({ products })
     const points = products.reduce((a, b) => a + b.points * b.total, 0)
@@ -172,6 +197,7 @@ export default async (req, res) => {
       // _total,
       check,
       voucher,
+      voucher2: voucher2 || null,
       transactions,
       amounts,
       office,
@@ -182,6 +208,7 @@ export default async (req, res) => {
       bank,
       voucher_date: date,
       voucher_number,
+      voucher_number2: voucher_number2 || null,
     })
 
     if (isFullBalance) {

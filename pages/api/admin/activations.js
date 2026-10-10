@@ -8,7 +8,7 @@ const { error, success, midd, ids, map, model, rand } = lib
 // const q = { all: {}, pending: { status: 'pending'} }
 
 // models
-const A = ['id', 'date', 'products', 'price', 'points', 'voucher', 'status', 'amounts', 'office', 'delivered', 'closed', 'pay_method', 'bank', 'voucher_date', 'voucher_number']
+const A = ['id', 'date', 'products', 'price', 'points', 'voucher', 'voucher2', 'status', 'amounts', 'office', 'delivered', 'closed', 'pay_method', 'bank', 'voucher_date', 'voucher_number', 'voucher_number2']
 const U = ['name', 'lastName', 'dni', 'phone']
 
 
