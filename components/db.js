@@ -415,6 +415,13 @@ class Transaction {
     await db.collection('transactions').updateOne(query, { $set: values })
     return client.close()
   }
+  async updateMany(query, values) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn = await client.connect()
+    const db = conn.db(name)
+    await db.collection('transactions').updateMany(query, { $set: values })
+    return client.close()
+  }
   async delete(query) {
     const client = new Client(URL, { useUnifiedTopology: true })
     const conn = await client.connect()

@@ -231,8 +231,9 @@ export default async (req, res) => {
       }
       if (closuresToAdd === 0) closuresToAdd = 1
 
-      const closures_left = (user.closures_left || 0) + closuresToAdd
-      const points_total = (user.points || 0) + points
+      const currentClosures = Math.max(user.closures_left || 0, 0)
+      const closures_left = currentClosures + closuresToAdd
+      const points_total = (user.points || 0) + (points || 0)
 
       await User.update({ id: user.id }, {
         activated: true,
@@ -241,11 +242,15 @@ export default async (req, res) => {
         closures_left,
       })
 
-      // Liberar todo el saldo retenido (saldo no disponible a disponible)
-      const virtualTxs = await Transaction.find({ user_id: user.id, virtual: true })
-      for (let t of virtualTxs) {
-        await Transaction.update({ id: t.id }, { virtual: false })
-      }
+      // Liberar todo el saldo retenido (saldo no disponible a disponible) de forma atomica
+      const userIds = [user.id]
+      if (typeof user.id === 'string' && !isNaN(Number(user.id))) userIds.push(Number(user.id))
+      if (typeof user.id === 'number') userIds.push(String(user.id))
+
+      await Transaction.updateMany(
+        { user_id: { $in: userIds }, virtual: true },
+        { virtual: false }
+      )
     }
 
     // response

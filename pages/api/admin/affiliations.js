@@ -193,13 +193,15 @@ const handler = async (req, res) => {
         products: office.products,
       })
 
-      // migrar transaccinoes virtuales
-      const transactions = await Transaction.find({ user_id: user.id, virtual: true })
+      // migrar transacciones virtuales de forma atomica
+      const userIds = [user.id]
+      if (typeof user.id === 'string' && !isNaN(Number(user.id))) userIds.push(Number(user.id))
+      if (typeof user.id === 'number') userIds.push(String(user.id))
 
-      for (let transaction of transactions) {
-        console.log({ transaction })
-        await Transaction.update({ id: transaction.id }, { virtual: false })
-      }
+      await Transaction.updateMany(
+        { user_id: { $in: userIds }, virtual: true },
+        { virtual: false }
+      )
 
     }
 

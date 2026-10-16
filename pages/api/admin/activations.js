@@ -100,12 +100,8 @@ export default async (req, res) => {
       // const points_total  = user.points.total  + activation.points
       // const points_period = user.points.period + activation.points
 
-      const points_total = user.points + activation.points
+      const points_total = (user.points || 0) + (activation.points || 0)
       console.log({ points_total })
-
-      // const Actiproduct = activation.products.some(
-      //   (products) => products.name === "ACTIVACIÓN LOTES" || products.name === "ACTIVACIÓN MEMBRESIAS"
-      // );
 
       let closuresToAdd = 0
       for (let p of (activation.products || [])) {
@@ -126,7 +122,8 @@ export default async (req, res) => {
       }
       if (closuresToAdd === 0) closuresToAdd = 1
 
-      const closures_left = (user.closures_left || 0) + closuresToAdd
+      const currentClosures = Math.max(user.closures_left || 0, 0)
+      const closures_left = currentClosures + closuresToAdd
 
       await User.update({ id: user.id }, {
         activated: true,
@@ -135,34 +132,33 @@ export default async (req, res) => {
         closures_left,
       })
 
-      // Migrar y habilitar todo el saldo retenido (saldo no disponible a disponible)
-      const transactions = await Transaction.find({ user_id: user.id, virtual: true })
-      for (let transaction of transactions) {
-        await Transaction.update({ id: transaction.id }, { virtual: false })
-      }
+      // Migrar y habilitar todo el saldo retenido (saldo no disponible a disponible) de forma atomica
+      const userIds = [user.id]
+      if (typeof user.id === 'string' && !isNaN(Number(user.id))) userIds.push(Number(user.id))
+      if (typeof user.id === 'number') userIds.push(String(user.id))
 
+      await Transaction.updateMany(
+        { user_id: { $in: userIds }, virtual: true },
+        { virtual: false }
+      )
 
-      // UPDATE STOCK
-      console.log('UPDATE STOCK ...')
+      // UPDATE STOCK (si aplica oficina fisica y productos con inventario)
       const office_id = activation.office
-      const products = activation.products
+      if (office_id) {
+        console.log('UPDATE STOCK ...')
+        const office = await Office.findOne({ id: office_id })
 
-      // console.log({ office_id, products })
+        if (office && Array.isArray(office.products)) {
+          const products = activation.products || []
+          products.forEach((p, i) => {
+            if (office.products[i] && p.total) office.products[i].total -= p.total
+          })
 
-
-      const office = await Office.findOne({ id: office_id })
-
-      // console.log(office)
-
-
-      products.forEach((p, i) => {
-        if (office.products[i]) office.products[i].total -= products[i].total
-      })
-
-
-      await Office.update({ id: office_id }, {
-        products: office.products,
-      })
+          await Office.update({ id: office_id }, {
+            products: office.products,
+          })
+        }
+      }
 
       // console.log(office)
 

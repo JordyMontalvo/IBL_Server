@@ -124,17 +124,18 @@ const handler = async (req, res) => {
     console.log({ action, id })
 
     if (action == 'migrate') {
-      console.log('migrate ...')
+      console.log('migrate ...', id)
 
-      // migrar transaccinoes virtuales
-      const transactions = await Transaction.find({ user_id: id, virtual: true })
-      // console.log({ transactions })
+      const userIds = [id]
+      if (typeof id === 'string' && !isNaN(Number(id))) userIds.push(Number(id))
+      if (typeof id === 'number') userIds.push(String(id))
 
-      for(let transaction of transactions) {
-        console.log({ transaction })
+      await Transaction.updateMany(
+        { user_id: { $in: userIds }, virtual: true },
+        { virtual: false }
+      )
 
-        await Transaction.update({ id: transaction.id }, { virtual: false })
-      }
+      return res.json(success({}))
     }
 
     if (action == 'name') {
