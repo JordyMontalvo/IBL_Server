@@ -1,7 +1,7 @@
 import db  from "../../../components/db"
 import lib from "../../../components/lib"
 
-const { User, Session, Product, Activation, Affiliation, Membership, Lot, Office, Transaction } = db
+const { User, Session, Product, Activation, Affiliation, Membership, Lot, Office, Transaction, Setting } = db
 const { error, success, midd, map, rand, acum } = lib
 
 
@@ -65,6 +65,12 @@ export default async (req, res) => {
 
     const offices = await Office.find({})
 
+    // bancos habilitados desde el administrador
+    const bankSetting = await Setting.findOne({ key: 'banks' })
+    const banks = (bankSetting && Array.isArray(bankSetting.banks) ? bankSetting.banks : [])
+      .filter(b => b.active)
+      .map(b => b.name)
+
 
     // response
     return res.json(success({
@@ -82,6 +88,7 @@ export default async (req, res) => {
       points:     user.points,
       profit,
       offices,
+      banks,
 
       balance,
      _balance,
@@ -98,6 +105,12 @@ export default async (req, res) => {
     }
 
     if (pay_method === 'bank') {
+      const bankSetting = await Setting.findOne({ key: 'banks' })
+      const activeBanks = (bankSetting && Array.isArray(bankSetting.banks) ? bankSetting.banks : []).filter(b => b.active)
+      if (activeBanks.length && !activeBanks.some(b => b.name === bank)) {
+        return res.json(error('Selecciona un banco válido.'))
+      }
+
       const numbers = [voucher_number, voucher_number2]
         .filter((n) => n != null && String(n).trim() !== '')
         .map((n) => String(n).trim())
