@@ -1,7 +1,7 @@
 import db from "../../../components/db"
 import lib from "../../../components/lib"
 
-const { User, Session, Transaction, Tree, Banner, Setting, Activation, Product } = db
+const { User, Session, Transaction, Tree, Banner, Setting, Activation, Product, Membership } = db
 const { error, success, acum, midd } = lib
 
 // rangos con pin (las imágenes se suben desde Admin > Banner > Pines)
@@ -107,6 +107,15 @@ export default async (req, res) => {
       if (activationMode === 'anual') activationExpires = addMonthsLima(last.date, months)
     }
   }
+
+  // ventas personales: membresías vendidas por el socio y aprobadas, de todo su historial.
+  // se cuenta directo de la colección, así una venta rechazada o eliminada deja de sumar
+  const sellerIds = [user.id, String(user.id)]
+  if (!isNaN(Number(user.id))) sellerIds.push(Number(user.id))
+  const personalSales = (await Membership.find({
+    status: 'approved',
+    $or: [{ sellerId: { $in: sellerIds } }, { userId: { $in: sellerIds } }],
+  })).length
 
   const { Closed, Lot } = db
 
@@ -237,6 +246,7 @@ export default async (req, res) => {
     rank: user.rank,
     rankKey,
     activationMode,
+    stats: { personalSales },
     activationExpires,
     rankName,
     rankPin,
