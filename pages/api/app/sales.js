@@ -4,6 +4,15 @@ import lib from "../../../components/lib"
 const { User, Session, Membership, Lot, Transaction, Office, Activation, Affiliation } = db
 const { error, success, midd, rand, acum } = lib
 
+// mes de la venta ("YYYY-MM") en hora de Perú
+function periodOf(date) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Lima', year: 'numeric', month: 'numeric' })
+    .formatToParts(new Date(date))
+  const y = parts.find(p => p.type === 'year').value
+  const m = parts.find(p => p.type === 'month').value.padStart(2, '0')
+  return `${y}-${m}`
+}
+
 export default async (req, res) => {
   await midd(req, res)
 
@@ -26,6 +35,35 @@ export default async (req, res) => {
 
   const balance = ins - outs
   const _balance = _ins - _outs
+
+
+  // historial de ventas: membresías vendidas personalmente por el socio
+  if (req.method == 'GET') {
+    const sellerIds = [user.id, String(user.id)]
+    if (!isNaN(Number(user.id))) sellerIds.push(Number(user.id))
+
+    const sales = (await Membership.find({ $or: [{ sellerId: { $in: sellerIds } }, { userId: { $in: sellerIds } }] }))
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .map(s => ({
+        id:       s.id,
+        date:     s.date,
+        period:   periodOf(s.date),
+        name:     s.name,
+        price:    s.price,
+        status:   s.status,
+        voucher:  s.voucher || null,
+        voucher2: s.voucher2 || null,
+        bank:     s.bank || null,
+        pay_method: s.pay_method || null,
+        buyer: {
+          name:  (s.buyer && s.buyer.name) || '',
+          dni:   (s.buyer && s.buyer.dni) || '',
+          phone: (s.buyer && s.buyer.phone) || '',
+        },
+      }))
+
+    return res.json(success({ sales }))
+  }
 
 
   if (req.method == 'POST') {
