@@ -99,6 +99,9 @@ export default async (req, res) => {
   const insVirtual = acum(virtualTransactions, { type: 'in' }, 'value')
   const outsVirtual = acum(virtualTransactions, { type: 'out' }, 'value')
 
+  // saldos: misma función que usa el flujo de retiros, para que siempre coincidan
+  const { available, unavailable } = await lib.getBalances(Transaction, user.id)
+
   // total ganado: todos los ingresos (disponibles y no disponibles),
   // sin contar las transferencias recibidas de otros socios
   const totalEarned = [...transactions, ...virtualTransactions]
@@ -287,8 +290,8 @@ export default async (req, res) => {
     insVirtual,
     totalEarned,
     outs,
-    balance: (ins - outs),
-    _balance: (insVirtual - outsVirtual),
+    balance: available.total,
+    _balance: unavailable.total,
     _balance_lote: (insVirtualLote - outsVirtualLote),
     _balance_membresia: (insVirtualMembresia - outsVirtualMembresia),
     rank: user.rank,
