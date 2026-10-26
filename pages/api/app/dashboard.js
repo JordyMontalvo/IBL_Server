@@ -1,8 +1,16 @@
 import db from "../../../components/db"
 import lib from "../../../components/lib"
 
-const { User, Session, Transaction, Tree, Banner } = db
+const { User, Session, Transaction, Tree, Banner, Setting } = db
 const { error, success, acum, midd } = lib
+
+// rangos con pin (las imágenes se suben desde Admin > Banner > Pines)
+const RANK_NAMES = {
+  emprendedor:    'Emprendedor',
+  empresario:     'Empresario',
+  master:         'Máster',
+  top_empresario: 'Top Empresario',
+}
 
 
 export default async (req, res) => {
@@ -38,6 +46,13 @@ export default async (req, res) => {
 
 
   const banner = await Banner.findOne({})
+
+  // rango alcanzado y su pin
+  // TODO: la lógica de calificación está pendiente; mientras tanto todos los socios quedan "Sin rango"
+  const rankKey = null
+  const pinSetting = rankKey ? await Setting.findOne({ key: 'rank_pins' }) : null
+  const rankName = RANK_NAMES[rankKey] || 'Sin rango'
+  const rankPin = (pinSetting && pinSetting.pins && pinSetting.pins[rankKey]) || null
   const { Closed, Lot } = db
 
   // -- Bono Constructor Logic --
@@ -164,6 +179,9 @@ export default async (req, res) => {
     _balance_lote: (insVirtualLote - outsVirtualLote),
     _balance_membresia: (insVirtualMembresia - outsVirtualMembresia),
     rank: user.rank,
+    rankKey,
+    rankName,
+    rankPin,
     points: user.points,
     bonoConstructor: currentCycle
   }))
