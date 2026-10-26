@@ -34,6 +34,12 @@ export default async (req, res) => {
   const insVirtual = acum(virtualTransactions, { type: 'in' }, 'value')
   const outsVirtual = acum(virtualTransactions, { type: 'out' }, 'value')
 
+  // total ganado: todos los ingresos (disponibles y no disponibles),
+  // sin contar las transferencias recibidas de otros socios
+  const totalEarned = [...transactions, ...virtualTransactions]
+    .filter(t => t.type === 'in' && t.name !== 'wallet transfer')
+    .reduce((a, t) => a + (Number(t.value) || 0), 0)
+
 
   /* Split virtual balance types */
   const virtualLote = virtualTransactions.filter(t => t.activation_type === 'LOTE')
@@ -173,6 +179,7 @@ export default async (req, res) => {
     banner,
     ins,
     insVirtual,
+    totalEarned,
     outs,
     balance: (ins - outs),
     _balance: (insVirtual - outsVirtual),
