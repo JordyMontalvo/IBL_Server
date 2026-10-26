@@ -138,10 +138,18 @@ export default async (req, res) => {
     const approved = await Activation.find({ userId: { $in: userIds }, status: 'approved' })
     const last = approved.sort((a, b) => new Date(b.date) - new Date(a.date))[0]
 
-    if (last) {
+    if (last && last.date && !isNaN(new Date(last.date))) {
       const months = await activationDuration(last)
       activationMode = months >= 12 ? 'anual' : 'mensual'
       if (activationMode === 'anual') activationExpires = addMonthsLima(last.date, months)
+    } else {
+      // activo sin una activación aprobada registrada (p. ej. activado al aprobar su afiliación):
+      // se usan los cierres de vigencia que le quedan, que es lo que decide cuándo se desactiva
+      const left = Number(user.closures_left) || 0
+      if (left > 0) {
+        activationMode = left > 1 ? 'anual' : 'mensual'
+        if (activationMode === 'anual') activationExpires = addMonthsLima(new Date(), left)
+      }
     }
   }
 
