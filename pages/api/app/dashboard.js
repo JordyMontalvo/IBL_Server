@@ -34,6 +34,40 @@ async function activationDuration(activation) {
   return months || 1
 }
 
+// ids del equipo comercial (descendientes en la red) hasta `maxDepth` niveles
+function teamIds(tree, rootId, maxDepth) {
+  const byId = new Map(tree.map(n => [String(n.id), n]))
+  const seen = new Set([String(rootId)])
+  const ids = []
+  let level = [String(rootId)]
+
+  for (let depth = 1; depth <= maxDepth && level.length; depth++) {
+    const next = []
+    for (const id of level) {
+      const node = byId.get(id)
+      for (const child of (node && node.childs) || []) {
+        const key = String(child)
+        if (seen.has(key)) continue
+        seen.add(key)
+        ids.push(child)
+        next.push(key)
+      }
+    }
+    level = next
+  }
+  return ids
+}
+
+// variantes string / number de una lista de ids (los ids se guardan de ambas formas)
+function idVariants(list) {
+  const out = []
+  for (const id of list) {
+    out.push(id, String(id))
+    if (!isNaN(Number(id))) out.push(Number(id))
+  }
+  return out
+}
+
 // mes y año ("YYYY-MM") en hora de Perú, sumando meses
 function addMonthsLima(date, months) {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Lima', year: 'numeric', month: 'numeric' })
@@ -110,12 +144,26 @@ export default async (req, res) => {
 
   // ventas personales: membresías vendidas por el socio y aprobadas, de todo su historial.
   // se cuenta directo de la colección, así una venta rechazada o eliminada deja de sumar
-  const sellerIds = [user.id, String(user.id)]
-  if (!isNaN(Number(user.id))) sellerIds.push(Number(user.id))
-  const personalSales = (await Membership.find({
-    status: 'approved',
-    $or: [{ sellerId: { $in: sellerIds } }, { userId: { $in: sellerIds } }],
-  })).length
+  const approvedSalesBy = async (ids) => {
+    if (!ids.length) return 0
+    const sellers = idVariants(ids)
+    return (await Membership.find({
+      status: 'approved',
+      $or: [{ sellerId: { $in: sellers } }, { userId: { $in: sellers } }],
+    })).length
+  }
+  const personalSales = await approvedSalesBy([user.id])
+
+  // ventas grupales: lo mismo para su equipo comercial, solo niveles 1 al 7 (sin incluir sus propias ventas)
+  const tree = await Tree.find({})
+  const team = teamIds(tree, user.id, 7)
+  const groupSales = await approvedSalesBy(team)
+
+  // mi red comercial: personas de su organización en los niveles 1 al 7
+  const network = team.length
+
+  // socios directos: personas registradas por el socio (su patrocinador es él), sin importar sus ventas
+  const directs = (await User.find({ parentId: { $in: idVariants([user.id]) } })).length
 
   const { Closed, Lot } = db
 
@@ -246,7 +294,7 @@ export default async (req, res) => {
     rank: user.rank,
     rankKey,
     activationMode,
-    stats: { personalSales },
+    stats: { personalSales, groupSales, directs, network },
     activationExpires,
     rankName,
     rankPin,
