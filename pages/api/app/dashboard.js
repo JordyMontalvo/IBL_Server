@@ -158,8 +158,14 @@ export default async (req, res) => {
       activationExpires = addMonthsLima(new Date(), left)
     }
 
-    // 3) si no, es mensual
-    if (!activationMode && (approved.length || left > 0)) activationMode = 'mensual'
+    // 3) si no, es mensual: vence según su última activación o, si no hay, según los cierres que le quedan
+    if (!activationMode && (approved.length || left > 0)) {
+      activationMode = 'mensual'
+      const byDate = approved.length ? addMonthsLima(approved[0].date, await activationDuration(approved[0])) : null
+      const byClosures = left > 0 ? addMonthsLima(new Date(), left) : null
+      // nunca un mes ya pasado: si la fecha de la última activación quedó atrás, valen los cierres
+      activationExpires = (byDate && byDate >= nowMonth) ? byDate : (byClosures || byDate)
+    }
   }
 
   // ventas personales: membresías vendidas por el socio y aprobadas, de todo su historial.
