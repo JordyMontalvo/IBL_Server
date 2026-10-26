@@ -182,8 +182,16 @@ export default async (req, res) => {
   // mi red comercial: personas de su organización en los niveles 1 al 7
   const network = team.length
 
-  // socios directos: personas registradas por el socio (su patrocinador es él), sin importar sus ventas
-  const directs = (await User.find({ parentId: { $in: idVariants([user.id]) } })).length
+  // socios directos: personas registradas por el socio (su patrocinador es él) más las que están
+  // directamente debajo de él en la red (p. ej. ubicadas desde Admin > Red, que no cambia el patrocinador).
+  // Se cuentan una sola vez y sin importar sus ventas
+  const sponsored = await User.find({ parentId: { $in: idVariants([user.id]) } })
+  const directIds = new Set([
+    ...sponsored.map(u => String(u.id)),
+    ...teamIds(tree, user.id, 1).map(String),
+  ])
+  directIds.delete(String(user.id))
+  const directs = directIds.size
 
   const { Closed, Lot } = db
 
