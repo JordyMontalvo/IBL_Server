@@ -13,23 +13,21 @@ const RANK_NAMES = {
 }
 
 
-// meses de vigencia de una activación (misma regla que al aprobarla)
+// meses de vigencia de una activación. Se toma la mayor de las señales disponibles:
+// la duración guardada en la compra, la del producto actual y el nombre ("Anual" / "Mensual"),
+// porque un producto editado en el admin puede cambiar de id o de duración después de la compra
 async function activationDuration(activation) {
   let months = 0
   for (const p of (activation.products || [])) {
-    if (!(p.total > 0)) continue
+    if (!(Number(p.total) > 0)) continue
     const productDoc = (await Product.findOne({ id: p.id })) || (await Product.findOne({ name: p.name }))
-    let duration = 1
-    if (productDoc && productDoc.duration) {
-      duration = Number(productDoc.duration)
-    } else if (p.duration) {
-      duration = Number(p.duration)
-    } else {
-      const normName = String(p.name || '').toUpperCase()
-      if (normName.includes('ANUAL')) duration = 12
-      else if (normName.includes('MENSUAL')) duration = 1
-    }
-    months = Math.max(months, duration)
+    const name = String(p.name || '').toUpperCase()
+    const signals = [
+      Number(p.duration) || 0,
+      Number(productDoc && productDoc.duration) || 0,
+      name.includes('ANUAL') ? 12 : 0,
+    ]
+    months = Math.max(months, ...signals)
   }
   return months || 1
 }
@@ -135,22 +133,33 @@ export default async (req, res) => {
     const userIds = [user.id, String(user.id)]
     if (!isNaN(Number(user.id))) userIds.push(Number(user.id))
 
-    const approved = await Activation.find({ userId: { $in: userIds }, status: 'approved' })
-    const last = approved.sort((a, b) => new Date(b.date) - new Date(a.date))[0]
+    const approved = (await Activation.find({ userId: { $in: userIds }, status: 'approved' }))
+      .filter(a => a.date && !isNaN(new Date(a.date)))
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
 
-    if (last && last.date && !isNaN(new Date(last.date))) {
-      const months = await activationDuration(last)
-      activationMode = months >= 12 ? 'anual' : 'mensual'
-      if (activationMode === 'anual') activationExpires = addMonthsLima(last.date, months)
-    } else {
-      // activo sin una activación aprobada registrada (p. ej. activado al aprobar su afiliación):
-      // se usan los cierres de vigencia que le quedan, que es lo que decide cuándo se desactiva
-      const left = Number(user.closures_left) || 0
-      if (left > 0) {
-        activationMode = left > 1 ? 'anual' : 'mensual'
-        if (activationMode === 'anual') activationExpires = addMonthsLima(new Date(), left)
+    // 1) una activación anual aprobada que siga vigente (aunque después haya comprado otra mensual)
+    const nowMonth = addMonthsLima(new Date(), 0)
+    for (const act of approved) {
+      const months = await activationDuration(act)
+      if (months < 12) continue
+      const expires = addMonthsLima(act.date, months)
+      if (expires >= nowMonth) {
+        activationMode = 'anual'
+        activationExpires = expires
+        break
       }
     }
+
+    // 2) si no, los cierres de vigencia que le quedan: es lo que decide cuándo se desactiva
+    //    (sirve también para socios activos sin una activación registrada)
+    const left = Number(user.closures_left) || 0
+    if (!activationMode && left >= 3) {
+      activationMode = 'anual'
+      activationExpires = addMonthsLima(new Date(), left)
+    }
+
+    // 3) si no, es mensual
+    if (!activationMode && (approved.length || left > 0)) activationMode = 'mensual'
   }
 
   // ventas personales: membresías vendidas por el socio y aprobadas, de todo su historial.
