@@ -1,7 +1,7 @@
 import db from "../../../components/db"
 import lib from "../../../components/lib"
 
-const { User, Session, Transaction, Tree, Banner, Setting } = db
+const { User, Session, Transaction, Tree, Banner, Setting, Activation, Product } = db
 const { error, success, acum, midd } = lib
 
 // rangos con pin (las imágenes se suben desde Admin > Banner > Pines)
@@ -12,6 +12,37 @@ const RANK_NAMES = {
   top_empresario: 'Top Empresario',
 }
 
+
+// meses de vigencia de una activación (misma regla que al aprobarla)
+async function activationDuration(activation) {
+  let months = 0
+  for (const p of (activation.products || [])) {
+    if (!(p.total > 0)) continue
+    const productDoc = (await Product.findOne({ id: p.id })) || (await Product.findOne({ name: p.name }))
+    let duration = 1
+    if (productDoc && productDoc.duration) {
+      duration = Number(productDoc.duration)
+    } else if (p.duration) {
+      duration = Number(p.duration)
+    } else {
+      const normName = String(p.name || '').toUpperCase()
+      if (normName.includes('ANUAL')) duration = 12
+      else if (normName.includes('MENSUAL')) duration = 1
+    }
+    months = Math.max(months, duration)
+  }
+  return months || 1
+}
+
+// mes y año ("YYYY-MM") en hora de Perú, sumando meses
+function addMonthsLima(date, months) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Lima', year: 'numeric', month: 'numeric' })
+    .formatToParts(new Date(date))
+  const y = Number(parts.find(p => p.type === 'year').value)
+  const m = Number(parts.find(p => p.type === 'month').value)
+  const total = y * 12 + (m - 1) + months
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}`
+}
 
 export default async (req, res) => {
   await midd(req, res)
@@ -59,6 +90,24 @@ export default async (req, res) => {
   const pinSetting = rankKey ? await Setting.findOne({ key: 'rank_pins' }) : null
   const rankName = RANK_NAMES[rankKey] || 'Sin rango'
   const rankPin = (pinSetting && pinSetting.pins && pinSetting.pins[rankKey]) || null
+  // activación: modalidad (mensual / anual) y vencimiento de la última activación aprobada
+  let activationMode = null
+  let activationExpires = null
+
+  if (user.activated || user._activated) {
+    const userIds = [user.id, String(user.id)]
+    if (!isNaN(Number(user.id))) userIds.push(Number(user.id))
+
+    const approved = await Activation.find({ userId: { $in: userIds }, status: 'approved' })
+    const last = approved.sort((a, b) => new Date(b.date) - new Date(a.date))[0]
+
+    if (last) {
+      const months = await activationDuration(last)
+      activationMode = months >= 12 ? 'anual' : 'mensual'
+      if (activationMode === 'anual') activationExpires = addMonthsLima(last.date, months)
+    }
+  }
+
   const { Closed, Lot } = db
 
   // -- Bono Constructor Logic --
@@ -187,6 +236,8 @@ export default async (req, res) => {
     _balance_membresia: (insVirtualMembresia - outsVirtualMembresia),
     rank: user.rank,
     rankKey,
+    activationMode,
+    activationExpires,
     rankName,
     rankPin,
     points: user.points,
