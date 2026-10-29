@@ -19,7 +19,7 @@ export default async (req, res) => {
   console.log(user.plan)
 
   // get plans
-  let _products = await Product.find({})
+  let _products = await Product.find({ deleted: { $ne: true } })
 
   if(!user.activated) {
     _products = _products.filter((p) => p.type != 'Promoción')

@@ -95,7 +95,10 @@ export default async (req, res) => {
       }
 
       for (const vn of numbers) {
-        const query = { $or: [{ voucher_number: vn }, { voucher_number2: vn }], status: { $in: ['approved', 'pending'] } }
+        // ignora espacios y ceros a la izquierda ("26" == "000000026")
+        const core = vn.replace(/\s+/g, '').replace(/^0+/, '')
+        const pattern = core ? { $regex: `^\\s*0*${core.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$` } : vn
+        const query = { $or: [{ voucher_number: pattern }, { voucher_number2: pattern }], status: { $in: ['approved', 'pending'] } }
         const duplicated = await Activation.findOne(query)
           || await Affiliation.findOne(query)
           || await Membership.findOne(query)
@@ -126,6 +129,19 @@ export default async (req, res) => {
     }
 
     const Collection = type === 'LOTE' ? Lot : Membership
+
+    // evita reenvíos: misma venta (comprador + producto) en los últimos 10 minutos
+    if (buyerData && buyerData.dni) {
+      const since = new Date(Date.now() - 10 * 60 * 1000)
+      const recent = await Collection.find({
+        'buyer.dni': buyerData.dni,
+        productId: product.id,
+        status: { $in: ['pending', 'approved'] },
+      })
+      if (recent.some(r => new Date(r.date) >= since)) {
+        return res.json(error('Ya se registró una venta igual hace pocos minutos. Revisa tus ventas antes de enviarla de nuevo.'))
+      }
+    }
 
     const price = product.price * product.total
     const points = product.points * product.total
