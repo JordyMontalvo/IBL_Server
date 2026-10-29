@@ -13,6 +13,18 @@ function periodOf(date) {
   return `${y}-${m}`
 }
 
+// número correlativo del comprobante: se asigna una sola vez y queda guardado en la venta
+async function receiptNumber(sale) {
+  if (sale.receipt_number) return sale.receipt_number
+
+  const all = await Membership.find({})
+  const last = all.reduce((max, m) => Math.max(max, Number(m.receipt_number) || 0), 0)
+  const receipt_number = last + 1
+
+  await Membership.update({ id: sale.id }, { receipt_number })
+  return receipt_number
+}
+
 export default async (req, res) => {
   await midd(req, res)
 
@@ -41,6 +53,27 @@ export default async (req, res) => {
   if (req.method == 'GET') {
     const sellerIds = [user.id, String(user.id)]
     if (!isNaN(Number(user.id))) sellerIds.push(Number(user.id))
+
+    // comprobante de una venta
+    if (req.query.id) {
+      const sale = await Membership.findOne({ id: req.query.id, $or: [{ sellerId: { $in: sellerIds } }, { userId: { $in: sellerIds } }] })
+      if (!sale) return res.json(error('Venta no encontrada'))
+      if (sale.status !== 'approved') return res.json(error('La boleta solo está disponible para ventas aprobadas'))
+
+      return res.json(success({
+        receipt: {
+          number:     await receiptNumber(sale),
+          date:       sale.date,
+          name:       sale.name,
+          price:      sale.price,
+          pay_method: sale.pay_method || null,
+          buyer: {
+            name: (sale.buyer && sale.buyer.name) || '',
+            dni:  (sale.buyer && sale.buyer.dni) || '',
+          },
+        },
+      }))
+    }
 
     const sales = (await Membership.find({ $or: [{ sellerId: { $in: sellerIds } }, { userId: { $in: sellerIds } }] }))
       .sort((a, b) => new Date(b.date) - new Date(a.date))
