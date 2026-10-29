@@ -4,7 +4,7 @@ const name = process.env.DB_NAME
 const Client = require('mongodb').MongoClient
 
 class DB {
-  constructor({ User, Session, Affiliation, Product, Activation, Banner, Promo, Prom, Plan, Token, Transaction, Tree, Collect, OfficeCollect, Office, Recharge, Closed, Membership, Lot, BonoPrize, Setting }) {
+  constructor({ User, Session, Affiliation, Product, Activation, Banner, Promo, Prom, Plan, Token, Transaction, Tree, Collect, OfficeCollect, Office, Recharge, Closed, Membership, Lot, BonoPrize, Setting, Project }) {
     this.User = User
     this.Session = Session
     this.Affiliation = Affiliation
@@ -26,6 +26,7 @@ class DB {
     this.Lot = Lot
     this.BonoPrize = BonoPrize
     this.Setting = Setting
+    this.Project = Project
   }
 }
 
@@ -782,6 +783,39 @@ class Setting {
   }
 }
 
+class Project {
+  async find(query, projection = {}) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn = await client.connect()
+    const db = conn.db(name)
+    const items = await db.collection('projects').find(query, { projection }).sort({ date: 1 }).toArray()
+    client.close()
+    return items
+  }
+  async findOne(query) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn = await client.connect()
+    const db = conn.db(name)
+    const item = await db.collection('projects').findOne(query)
+    client.close()
+    return item
+  }
+  async insert(item) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn = await client.connect()
+    const db = conn.db(name)
+    await db.collection('projects').insertOne(item)
+    return client.close()
+  }
+  async delete(query) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn = await client.connect()
+    const db = conn.db(name)
+    await db.collection('projects').deleteOne(query)
+    return client.close()
+  }
+}
+
 export default new DB({
   User: new User(),
   Session: new Session(),
@@ -804,4 +838,5 @@ export default new DB({
   Lot: new Lot(),
   BonoPrize: new BonoPrize(),
   Setting: new Setting(),
+  Project: new Project(),
 })
