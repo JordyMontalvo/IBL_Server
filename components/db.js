@@ -261,6 +261,14 @@ class Prom {
 }
 
 class Product {
+  async findOne(query) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn = await client.connect()
+    const db = conn.db(name)
+    const product = await db.collection('products').findOne(query)
+    client.close()
+    return product
+  }
   async find(query) {
     const client = new Client(URL, { useUnifiedTopology: true })
     const conn = await client.connect()
@@ -295,6 +303,13 @@ class Product {
     const conn = await client.connect()
     const db = conn.db(name)
     await db.collection('products').deleteOne(query)
+    return client.close()
+  }
+  async softDelete(query) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn = await client.connect()
+    const db = conn.db(name)
+    await db.collection('products').updateOne(query, { $set: { deleted: true, deleted_at: new Date() } })
     return client.close()
   }
 }

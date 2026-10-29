@@ -22,7 +22,7 @@ export default async (req, res) => {
   let plans = await Plan.find({})
 
   // get PRODUCTS
-  const products = await Product.find({})
+  const products = await Product.find({ deleted: { $ne: true } })
 
 
   // get last AFFILIATION pending or approved
