@@ -18,7 +18,7 @@ export default async (req, res) => {
   // PDF of a single project
   if (id) {
     const project = await Project.findOne({ id })
-    if (!project) return res.json(error('Proyecto no encontrado'))
+    if (!project || !project.pdf) return res.json(error('Proyecto no encontrado'))
 
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(project.fileName || 'mapa.pdf')}"`)
@@ -26,6 +26,6 @@ export default async (req, res) => {
   }
 
   // list (without the PDF content)
-  const projects = await Project.find({}, { pdf: 0, fileName: 0 })
+  const projects = await Project.find({ pending: { $ne: true } }, { pdf: 0, parts: 0, fileName: 0 })
   return res.json(success({ projects }))
 }

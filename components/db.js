@@ -807,6 +807,16 @@ class Project {
     await db.collection('projects').insertOne(item)
     return client.close()
   }
+  async update(query, set, unset) {
+    const client = new Client(URL, { useUnifiedTopology: true })
+    const conn = await client.connect()
+    const db = conn.db(name)
+    const op = {}
+    if (set) op.$set = set
+    if (unset) op.$unset = unset
+    await db.collection('projects').updateOne(query, op)
+    return client.close()
+  }
   async delete(query) {
     const client = new Client(URL, { useUnifiedTopology: true })
     const conn = await client.connect()
