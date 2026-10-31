@@ -13,6 +13,18 @@ function periodOf(date) {
   return `${y}-${m}`
 }
 
+// número correlativo del comprobante: se asigna una sola vez y queda guardado en la venta
+async function receiptNumber(sale) {
+  if (sale.receipt_number) return sale.receipt_number
+
+  const all = await Membership.find({})
+  const last = all.reduce((max, m) => Math.max(max, Number(m.receipt_number) || 0), 0)
+  const receipt_number = last + 1
+
+  await Membership.update({ id: sale.id }, { receipt_number })
+  return receipt_number
+}
+
 export default async (req, res) => {
   await midd(req, res)
 
@@ -41,6 +53,27 @@ export default async (req, res) => {
   if (req.method == 'GET') {
     const sellerIds = [user.id, String(user.id)]
     if (!isNaN(Number(user.id))) sellerIds.push(Number(user.id))
+
+    // comprobante de una venta
+    if (req.query.id) {
+      const sale = await Membership.findOne({ id: req.query.id, $or: [{ sellerId: { $in: sellerIds } }, { userId: { $in: sellerIds } }] })
+      if (!sale) return res.json(error('Venta no encontrada'))
+      if (sale.status !== 'approved') return res.json(error('La boleta solo está disponible para ventas aprobadas'))
+
+      return res.json(success({
+        receipt: {
+          number:     await receiptNumber(sale),
+          date:       sale.date,
+          name:       sale.name,
+          price:      sale.price,
+          pay_method: sale.pay_method || null,
+          buyer: {
+            name: (sale.buyer && sale.buyer.name) || '',
+            dni:  (sale.buyer && sale.buyer.dni) || '',
+          },
+        },
+      }))
+    }
 
     const sales = (await Membership.find({ $or: [{ sellerId: { $in: sellerIds } }, { userId: { $in: sellerIds } }] }))
       .sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -95,7 +128,10 @@ export default async (req, res) => {
       }
 
       for (const vn of numbers) {
-        const query = { $or: [{ voucher_number: vn }, { voucher_number2: vn }], status: { $in: ['approved', 'pending'] } }
+        // ignora espacios y ceros a la izquierda ("26" == "000000026")
+        const core = vn.replace(/\s+/g, '').replace(/^0+/, '')
+        const pattern = core ? { $regex: `^\\s*0*${core.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$` } : vn
+        const query = { $or: [{ voucher_number: pattern }, { voucher_number2: pattern }], status: { $in: ['approved', 'pending'] } }
         const duplicated = await Activation.findOne(query)
           || await Affiliation.findOne(query)
           || await Membership.findOne(query)
@@ -126,6 +162,19 @@ export default async (req, res) => {
     }
 
     const Collection = type === 'LOTE' ? Lot : Membership
+
+    // evita reenvíos: misma venta (comprador + producto) en los últimos 10 minutos
+    if (buyerData && buyerData.dni) {
+      const since = new Date(Date.now() - 10 * 60 * 1000)
+      const recent = await Collection.find({
+        'buyer.dni': buyerData.dni,
+        productId: product.id,
+        status: { $in: ['pending', 'approved'] },
+      })
+      if (recent.some(r => new Date(r.date) >= since)) {
+        return res.json(error('Ya se registró una venta igual hace pocos minutos. Revisa tus ventas antes de enviarla de nuevo.'))
+      }
+    }
 
     const price = product.price * product.total
     const points = product.points * product.total

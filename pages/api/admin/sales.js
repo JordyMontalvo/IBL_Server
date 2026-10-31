@@ -12,7 +12,7 @@ export default async (req, res) => {
   if (req.method == 'GET') {
     const { filter, type } = req.query
 
-    const q = { all: {}, pending: { status: 'pending' }, approved: { status: 'approved' }, rejected: { status: 'rejected' } }
+    const q = { all: {}, pending: { status: 'pending' }, approved: { status: 'approved' }, rejected: { status: 'rejected' }, annulled: { status: 'annulled' } }
 
     if (!(filter in q)) return res.json(error('invalid filter'))
 
@@ -59,12 +59,14 @@ export default async (req, res) => {
         const sale = await Collection.findOne({ id })
         if (!sale) return res.json(error('sale not found'))
         if (sale.status === 'approved') return res.json(error('already approved'))
+        if (sale.status === 'annulled') return res.json(error('sale annulled'))
 
         await Collection.update({ id }, { status: 'approved' })
 
         // Pay Commission
         const sellerId = sale.sellerId || sale.userId
-        if (sellerId) {
+        const alreadyPaid = (await Transaction.find({ sale_id: sale.id })).length > 0
+        if (sellerId && !alreadyPaid) {
           const users = await User.find({})
           const tree  = await Tree.find({})
           
@@ -110,7 +112,60 @@ export default async (req, res) => {
         }
      }
      if (action === 'reject') {
+        const sale = await Collection.findOne({ id })
+        if (!sale) return res.json(error('sale not found'))
+        if (sale.status === 'approved') return res.json(error('Venta aprobada: usa Anular para revertir las comisiones'))
         await Collection.update({ id }, { status: 'rejected' })
+     }
+
+     if (action === 'annul') {
+        const { reason } = req.body
+        const sale = await Collection.findOne({ id })
+        if (!sale) return res.json(error('sale not found'))
+        if (sale.status === 'annulled') return res.json(error('La venta ya fue anulada'))
+        if (sale.status !== 'approved') return res.json(error('Solo se pueden anular ventas aprobadas'))
+        if (sale.transactions && sale.transactions.length) {
+          return res.json(error('La venta se pagó con saldo: anúlala manualmente'))
+        }
+
+        const commissions = (await Transaction.find({ sale_id: sale.id })).filter(t => t.type === 'in')
+        const reversed = (await Transaction.find({ sale_id: sale.id })).filter(t => t.type === 'out')
+        if (reversed.length) return res.json(error('La venta ya tiene reversos registrados'))
+
+        // el receptor no debe quedar con saldo negativo (por tipo: real / virtual)
+        const need = {}
+        for (const t of commissions) {
+          const k = `${t.user_id}|${t.virtual ? 'v' : 'r'}`
+          need[k] = (need[k] || 0) + t.value
+        }
+        for (const k of Object.keys(need)) {
+          const [uid, kind] = k.split('|')
+          const txs = await Transaction.find({ user_id: uid })
+          const balance = txs
+            .filter(t => (kind === 'v') === Boolean(t.virtual))
+            .reduce((a, t) => a + (t.type === 'in' ? t.value : -t.value), 0)
+          if (balance - need[k] < 0) {
+            return res.json(error(`No se puede anular: el usuario ${uid} ya no tiene saldo ${kind === 'v' ? 'virtual' : 'real'} suficiente para el reverso`))
+          }
+        }
+
+        for (const t of commissions) {
+          await Transaction.insert({
+            id: rand(),
+            date: new Date(),
+            user_id: t.user_id,
+            type: 'out',
+            value: t.value,
+            name: `reverso ${t.name}`,
+            sale_id: sale.id,
+            virtual: Boolean(t.virtual),
+            activation_type: t.activation_type,
+            _user_id: t._user_id,
+            reverses: t.id
+          })
+        }
+
+        await Collection.update({ id }, { status: 'annulled', annulled_at: new Date(), annulled_reason: reason || '' })
      }
      
      return res.json(success())
