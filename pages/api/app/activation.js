@@ -140,13 +140,14 @@ export default async (req, res) => {
 
     let transactions = []
     let amounts
+    let c
 
     if(check) {
 
       const a = _balance < price ? _balance : price
       const r = (price - _balance) > 0 ? price - _balance : 0
       const b = balance < r ? balance : r
-      const c = price - a - b
+      c = price - a - b
       // console.log({ a, b, c })
       const id1 = rand()
       const id2 = rand()
