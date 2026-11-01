@@ -1,7 +1,7 @@
 import db from "../../../components/db"
 import lib from "../../../components/lib"
 
-const { User, Session, Transaction, Tree, Banner } = db
+const { User, Session, Transaction, Tree, Banner, Activation } = db
 const { error, success, acum, midd } = lib
 
 
@@ -16,6 +16,15 @@ export default async (req, res) => {
 
   // get USER
   const user = await User.findOne({ id: session.id })
+
+  // plan de activación vigente (MENSUAL / ANUAL) según la última activación aprobada
+  let activation_plan = null
+  const approved = await Activation.find({ userId: user.id, status: 'approved' })
+  approved.sort((a, b) => new Date(b.date) - new Date(a.date))
+  for (const a of approved) {
+    const p = (a.products || []).find(p => p.total > 0 && (p.name === 'MENSUAL' || p.name === 'ANUAL'))
+    if (p) { activation_plan = p.name; break }
+  }
 
   // get transactions
   const transactions = await Transaction.find({ user_id: user.id, virtual: { $in: [null, false] } })
@@ -148,6 +157,8 @@ export default async (req, res) => {
     affiliated: user.affiliated,
     _activated: user._activated,
     activated: user.activated,
+    activation_plan,
+    closures_left: Math.max(user.closures_left || 0, 0),
     plan: user.plan,
     country: user.country,
     photo: user.photo,
