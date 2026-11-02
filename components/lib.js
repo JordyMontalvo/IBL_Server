@@ -1,5 +1,6 @@
 import Cors from 'cors'
 import cron from 'node-cron'
+import trialogic from './trialogic-report' // Monitoreo Trialogic: inerte sin TRIALOGIC_INGEST_URL
 
 class Lib {
 
@@ -14,6 +15,9 @@ class Lib {
   success(opts) { return { error: false, ...opts }}
 
   midd(req, res) {
+    // Reporta 5xx y peticiones lentas (Vercel Hobby corta a los 10 s) sin alterar la respuesta.
+    trialogic.monitorRequest(req, res, { slowMs: 8000, serverless: true })
+
     return new Promise((resolve, reject) => {
       this.cors(req, res, (result) => {
         if (result instanceof Error) return reject(result)
