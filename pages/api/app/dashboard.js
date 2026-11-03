@@ -1,5 +1,6 @@
 import db from "../../../components/db"
 import lib from "../../../components/lib"
+import { computeRanks } from "../../../components/ranks"
 
 const { User, Session, Transaction, Tree, Banner, Setting, Activation, Product, Membership } = db
 const { error, success, acum, midd } = lib
@@ -120,8 +121,9 @@ export default async (req, res) => {
   const banner = await Banner.findOne({})
 
   // rango alcanzado y su pin
-  // TODO: la lógica de calificación está pendiente; mientras tanto todos los socios quedan "Sin rango"
-  const rankKey = null
+  // mismo cálculo que Resumen > Bonificaciones
+  const ranks = await computeRanks(user)
+  const rankKey = ranks.rankKey
   const pinSetting = rankKey ? await Setting.findOne({ key: 'rank_pins' }) : null
   const rankName = RANK_NAMES[rankKey] || 'Sin rango'
   const rankPin = (pinSetting && pinSetting.pins && pinSetting.pins[rankKey]) || null
@@ -332,6 +334,7 @@ export default async (req, res) => {
     activationExpires,
     rankName,
     rankPin,
+    ranks,
     points: user.points,
     bonoConstructor: currentCycle
   }))
