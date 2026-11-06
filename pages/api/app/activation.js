@@ -155,6 +155,13 @@ export default async (req, res) => {
     let amounts
     let c = price
 
+    // pago mixto: si el saldo no cubre el total, el resto debe pagarse por banco o efectivo
+    const pool = Math.max(balance, 0) + Math.max(_balance, 0)
+    const pending_c = check ? Math.max(price - pool, 0) : price
+    if (pending_c > 0 && !pay_method) {
+      return res.json(error('El saldo no cubre el total. Elige transferencia o efectivo para el resto.'))
+    }
+
     if(check) {
 
       const a = _balance < price ? _balance : price
@@ -213,7 +220,7 @@ export default async (req, res) => {
       voucher,
       voucher2: voucher2 || null,
       transactions,
-      amounts,
+      amounts: amounts || [0, 0, price],
       office,
       status,
       delivered: false,

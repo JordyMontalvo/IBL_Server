@@ -46,19 +46,30 @@ export default async (req, res) => {
     let qq = q[filter]
     console.log({ qq })
 
-    if (account != 'admin') qq.office = account
+    if (account && account != 'admin') {
+      const offices = [account]
+      if (!isNaN(Number(account))) offices.push(Number(account))
+      qq = { ...qq, office: { $in: offices } }
+    }
     console.log({ qq })
 
     let activations = await Activation.find(qq)
 
-    // get users for activations
-    let users = await User.find({ id: { $in: ids(activations) } })
-    users = map(users)
+    // get users for activations (los ids pueden estar guardados como string o number)
+    const userIds = []
+    ids(activations).forEach(id => {
+      if (id == null) return
+      userIds.push(id)
+      if (typeof id === 'string' && !isNaN(Number(id))) userIds.push(Number(id))
+      if (typeof id === 'number') userIds.push(String(id))
+    })
+    let users = await User.find({ id: { $in: userIds } })
+    users = new Map(users.map(u => [String(u.id), u]))
 
-    // enrich activations
+    // enrich activations (nunca descartar una activacion aunque falte el usuario)
     activations = activations.map(a => {
 
-      let u = users.get(a.userId)
+      let u = users.get(String(a.userId)) || {}
 
       a = model(a, A)
       u = model(u, U)
